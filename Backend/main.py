@@ -3,287 +3,280 @@ import os
 import re
 import urllib.parse
 import urllib.request
-from datetime import datetime
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from yt_dlp import YoutubeDL
+
+# Опціонально: yt-dlp для реального стрімінгу YouTube
+try:
+    import yt_dlp
+    YT_DLP_AVAILABLE = True
+except ImportError:
+    YT_DLP_AVAILABLE = False
+    print("⚠️  yt-dlp не встановлено. Стрімінг YouTube буде недоступний.")
 
 app = Flask(__name__)
 CORS(app)
 
-# In-memory storage for demo (replace with database later)
-user_data = {}
+# ====================== CONFIG ======================
+YOUTUBE_API_KEY = ("YOUTUBE_API_KEY") #ЗАГЛУШКА
+SOUNDCLOUD_CLIENT_ID = os.getenv("SOUNDCLOUD_CLIENT_ID")  # опціонально
 
-YDL_OPTIONS = {
-    'quiet': True,
-    'nocheckcertificate': True,
-}
+if not YOUTUBE_API_KEY:
+    print("⚠️  YOUTUBE_API_KEY не знайдено! Пошук YouTube працювати не буде.")
 
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY')
-SOUNDCLOUD_CLIENT_ID = os.getenv('SOUNDCLOUD_CLIENT_ID')
-
-
-def parse_iso8601_duration(duration: str) -> str:
-    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration)
+# ====================== HELPERS ======================
+def parse_duration(duration: str) -> str:
+    """PT3M45S → 3:45"""
+    match = re.match(r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?', duration or "")
     if not match:
-        return '0:00'
-
+        return "0:00"
     hours = int(match.group(1) or 0)
     minutes = int(match.group(2) or 0)
     seconds = int(match.group(3) or 0)
-    total_seconds = hours * 3600 + minutes * 60 + seconds
-    return f"{total_seconds // 60}:{total_seconds % 60:02d}"
+    total_min = hours * 60 + minutes
+    return f"{total_min}:{seconds:02d}"
 
 
-def millis_to_duration(ms: int) -> str:
-    seconds = int(ms / 1000)
-    minutes = seconds // 60
-    remainder = seconds % 60
-    return f"{minutes}:{remainder:02d}"
-
-
-def fetch_json(url: str, params: dict) -> dict:
-    query = urllib.parse.urlencode(params)
-    request_url = f"{url}?{query}"
+def fetch_json(url: str, params: dict = None) -> dict:
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    
     req = urllib.request.Request(
-        request_url,
-        headers={
-            'User-Agent': 'Mozilla/5.0 (AuroraTunes)'
-        }
+        url,
+        headers={"User-Agent": "AuroraTunes/1.0 (Desktop App)"}
     )
-    with urllib.request.urlopen(req, timeout=15) as res:
-        return json.loads(res.read().decode('utf-8'))
+    with urllib.request.urlopen(req, timeout=12) as res:
+        return json.loads(res.read().decode("utf-8"))
 
 
-def search_soundcloud(query: str, limit: int = 10) -> list[dict]:
-    items = []
-
-    if SOUNDCLOUD_CLIENT_ID:
-        try:
-            response = fetch_json(
-                'https://api-v2.soundcloud.com/search/tracks',
-                {
-                    'q': query,
-                    'client_id': SOUNDCLOUD_CLIENT_ID,
-                    'limit': limit,
-                }
-            )
-            items = response.get('collection', []) or []
-        except Exception:
-            items = []
-    else:
-        try:
-            with YoutubeDL({**YDL_OPTIONS, 'extract_flat': True}) as ydl:
-                info = ydl.extract_info(f"scsearch{limit}:{query}", download=False)
-                items = info.get('entries', []) or []
-        except Exception:
-            items = []
-
-    tracks = []
-    for entry in items:
-        if not entry:
-            continue
-
-        thumbnail = 'https://via.placeholder.com/500'
-        if entry.get('artwork_url'):
-            thumbnail = entry.get('artwork_url')
-            if thumbnail.endswith('-large.jpg'):
-                thumbnail = thumbnail.replace('-large.jpg', '-t500x500.jpg')
-        elif entry.get('thumbnails'):
-            thumbs = entry.get('thumbnails')
-            if isinstance(thumbs, list) and thumbs:
-                thumbnail = thumbs[0].get('url', thumbnail)
-
-        channel = 'SoundCloud'
-        if entry.get('user'):
-            channel = entry.get('user', {}).get('username', channel)
-
-        duration = millis_to_duration(entry.get('duration', 0)) if entry.get('duration') else '0:00'
-
-        tracks.append({
-            'id': str(entry.get('id')),
-            'title': entry.get('title'),
-            'channel': channel,
-            'duration': duration,
-            'thumbnail': thumbnail,
-            'source': 'soundcloud',
-        })
-
-    return tracks
-
-
-def search_youtube(query: str, limit: int = 10) -> list[dict]:
+# ====================== YOUTUBE ======================
+def search_youtube(query: str, limit: int = 15) -> list:
     if not YOUTUBE_API_KEY:
         return []
 
     try:
+        # Пошук
         search_data = fetch_json(
-            'https://www.googleapis.com/youtube/v3/search',
+            "https://www.googleapis.com/youtube/v3/search",
             {
-                'part': 'snippet',
-                'maxResults': limit,
-                'q': query,
-                'type': 'video',
-                'key': YOUTUBE_API_KEY,
+                "part": "snippet",
+                "maxResults": limit,
+                "q": query,
+                "type": "video",
+                "videoCategoryId": "10",  # Music
+                "key": YOUTUBE_API_KEY,
             }
         )
 
-        video_ids = [item.get('id', {}).get('videoId') for item in search_data.get('items', []) if item.get('id', {}).get('videoId')]
+        video_ids = [item["id"]["videoId"] for item in search_data.get("items", []) if item.get("id", {}).get("videoId")]
+
         if not video_ids:
             return []
 
-        video_data = fetch_json(
-            'https://www.googleapis.com/youtube/v3/videos',
+        # Деталі (тривалість + thumbnail)
+        details = fetch_json(
+            "https://www.googleapis.com/youtube/v3/videos",
             {
-                'part': 'snippet,contentDetails',
-                'id': ','.join(video_ids),
-                'key': YOUTUBE_API_KEY,
+                "part": "snippet,contentDetails",
+                "id": ",".join(video_ids),
+                "key": YOUTUBE_API_KEY,
             }
         )
 
         tracks = []
-        for item in video_data.get('items', []):
-            snippet = item.get('snippet', {}) or {}
-            details = item.get('contentDetails', {}) or {}
-            thumbnails = snippet.get('thumbnails', {}) or {}
-            
-            # Get highest quality thumbnail available
+        for item in details.get("items", []):
+            snippet = item.get("snippet", {})
+            content = item.get("contentDetails", {})
+
+            thumbs = snippet.get("thumbnails", {})
             thumbnail = (
-                thumbnails.get('maxres', {}).get('url') or
-                thumbnails.get('high', {}).get('url') or
-                thumbnails.get('medium', {}).get('url') or
-                thumbnails.get('default', {}).get('url') or
-                'https://via.placeholder.com/500'
+                thumbs.get("maxres", {}).get("url") or 
+    thumbs.get("high", {}).get("url") or 
+    thumbs.get("medium", {}).get("url") or 
+    thumbs.get("default", {}).get("url") or
+                "https://via.placeholder.com/500x500/0a0a0f/7c3aed?text=Aurora"
             )
 
-            duration_str = parse_iso8601_duration(details.get('duration', 'PT0S'))
-            
             tracks.append({
-                'id': item.get('id'),
-                'title': snippet.get('title'),
-                'channel': snippet.get('channelTitle'),
-                'duration': duration_str if duration_str != '0:00' else '0:00',
-                'thumbnail': thumbnail,
-                'source': 'youtube',
+                "id": item["id"],
+                "title": snippet.get("title"),
+                "channel": snippet.get("channelTitle"),
+                "duration": parse_duration(content.get("duration")),
+                "thumbnail": thumbnail,
+                "source": "youtube"
             })
 
+        return tracks
+    except Exception as e:
+        print(f"YouTube search error: {e}")
+        return []
+
+
+def get_youtube_stream_url(video_id: str) -> str | None:
+    """Повертає пряме аудіо посилання через yt-dlp"""
+    if not YT_DLP_AVAILABLE:
+        return None
+
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'quiet': True,
+        'no_warnings': True,
+        'extract_flat': False,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            # Беремо найкращий аудіо формат
+            if info.get('url'):
+                return info['url']
+            # Альтернатива: formats
+            formats = info.get('formats', [])
+            audio_formats = [f for f in formats if f.get('acodec') != 'none' and f.get('url')]
+            if audio_formats:
+                return audio_formats[0]['url']
+    except Exception as e:
+        print(f"yt-dlp error for {video_id}: {e}")
+    
+    return None
+
+
+# ====================== SOUNDCLOUD (опціонально) ======================
+def search_soundcloud(query: str, limit: int = 8) -> list:
+    if not SOUNDCLOUD_CLIENT_ID:
+        return []
+
+    try:
+        data = fetch_json(
+            "https://api-v2.soundcloud.com/search/tracks",
+            {"q": query, "client_id": SOUNDCLOUD_CLIENT_ID, "limit": limit}
+        )
+
+        tracks = []
+        for track in data.get("collection", []):
+            if not track.get("streamable", True):
+                continue
+
+            artwork = track.get("artwork_url") or track.get("user", {}).get("avatar_url")
+            if artwork and "large.jpg" in artwork:
+                artwork = artwork.replace("large.jpg", "t500x500.jpg")
+
+            duration_ms = track.get("duration", 0)
+            duration = f"{duration_ms // 60000}:{(duration_ms % 60000) // 1000:02d}"
+
+            tracks.append({
+                "id": str(track["id"]),
+                "title": track.get("title"),
+                "channel": track.get("user", {}).get("username", "SoundCloud"),
+                "duration": duration,
+                "thumbnail": artwork or "https://via.placeholder.com/500",
+                "source": "soundcloud"
+            })
         return tracks
     except Exception:
         return []
 
 
-@app.route('/search')
-def search():
-    query = request.args.get('q')
-    source = request.args.get('source', 'all').lower()
+def get_soundcloud_stream_url(track_id: str) -> str | None:
+    if not SOUNDCLOUD_CLIENT_ID:
+        return None
+    try:
+        # Спочатку отримуємо track info
+        track = fetch_json(f"https://api-v2.soundcloud.com/tracks/{track_id}", {"client_id": SOUNDCLOUD_CLIENT_ID})
+        # Потім streams
+        streams = fetch_json(f"https://api-v2.soundcloud.com/tracks/{track_id}/streams", {"client_id": SOUNDCLOUD_CLIENT_ID})
+        
+        # Беремо найкращий (HLS AAC або http_mp3)
+        for key in ["hls_aac_160_url", "hls_aac_96_url", "http_mp3_128_url"]:
+            if streams.get(key):
+                return streams[key]
+    except Exception as e:
+        print(f"SoundCloud stream error: {e}")
+    return None
 
-    if not query:
+
+# ====================== ROUTES ======================
+
+@app.route('/search', methods=['GET']) # Раніше тут було /stream по помилці
+def search():
+    query = request.args.get("q", "").strip()
+    source = request.args.get("source", "all")
+    
+    if len(query) < 2:
         return jsonify([])
 
     tracks = []
-    if source == 'youtube':
-        tracks = search_youtube(query)
-    elif source == 'soundcloud':
-        tracks = search_soundcloud(query)
-    else:
-        tracks = []
-        tracks.extend(search_soundcloud(query, limit=6))
-        tracks.extend(search_youtube(query, limit=6))
+    # Логіка вибору джерела
+    if source in ["youtube", "all"]:
+        tracks.extend(search_youtube(query, limit=12))
+    if source in ["soundcloud", "all"]:
+        tracks.extend(search_soundcloud(query, limit=8))
 
-    return jsonify(tracks)
+    import random
+    random.shuffle(tracks)
+    return jsonify(tracks[:20])
 
-
-@app.route('/stream')
-def stream():
-    track_id = request.args.get('id')
-    source = request.args.get('source', 'soundcloud').lower()
-
+@app.route("/stream/<source>/<track_id>")
+def get_stream(source, track_id):
     if not track_id:
-        return jsonify({'error': 'track id is required'}), 400
+        return jsonify({'error': 'Track ID is required'}), 400
 
-    if source == 'youtube':
-        track_url = f'https://www.youtube.com/watch?v={track_id}'
-    else:
-        track_url = f'https://api.soundcloud.com/tracks/{track_id}'
+    if source == 'soundcloud':
+        if not SOUNDCLOUD_CLIENT_ID:
+            return jsonify({'error': 'SoundCloud ID not configured'}), 500
+        try:
+            # Використовуємо твою функцію-хелпер для SoundCloud
+            url = get_soundcloud_stream_url(track_id)
+            if url:
+                return jsonify({'stream_url': url})
+            return jsonify({'error': 'Could not get stream URL'}), 404
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
-    try:
-        with YoutubeDL({**YDL_OPTIONS, 'format': 'bestaudio/best'}) as ydl:
-            info = ydl.extract_info(track_url, download=False)
-            stream_url = info.get('url')
-            return jsonify({'stream_url': stream_url})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    elif source == 'youtube':
+        if not YT_DLP_AVAILABLE:
+            return jsonify({'error': 'yt-dlp not installed on server'}), 501
+        
+        url = get_youtube_stream_url(track_id)
+        if url:
+            return jsonify({'stream_url': url})
+        return jsonify({'error': 'Failed to extract YouTube audio'}), 404
 
-
-@app.route('/player/state', methods=['GET', 'POST'])
-def player_state():
-    user_id = request.args.get('user_id', 'default_user')
-
-    if request.method == 'POST':
-        # Save player state
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-
-        user_data[user_id] = {
-            'currentTrack': data.get('currentTrack'),
-            'currentTime': data.get('currentTime', 0),
-            'volume': data.get('volume', 0.7),
-            'playlist': data.get('playlist', []),
-            'listeningHistory': data.get('listeningHistory', []),
-            'lastUpdated': datetime.now().isoformat()
-        }
-        return jsonify({'success': True})
-
-    else:
-        # Load player state
-        state = user_data.get(user_id, {})
-        return jsonify(state)
+    return jsonify({'error': 'Unknown source'}), 400
 
 
-@app.route('/player/history', methods=['GET', 'POST'])
-def player_history():
-    user_id = request.args.get('user_id', 'default_user')
+@app.route("/health")
+def health():
+    return jsonify({
+        "status": "running",
+        "youtube_api": bool(YOUTUBE_API_KEY),
+        "soundcloud": bool(SOUNDCLOUD_CLIENT_ID),
+        "yt_dlp": YT_DLP_AVAILABLE
+    })
 
-    if request.method == 'POST':
-        # Add to history
-        data = request.get_json()
-        if not data or not data.get('track'):
-            return jsonify({'error': 'Track data required'}), 400
+@app.route("/random", methods=['GET'])
+def get_random_tracks():
+    """Повертає випадкові треки для автовідтворення при запуску"""
+    import random
+    
+    # Популярні музичні жанри для випадкового пошуку
+    genres = ["pop music", "electronic music", "rock hits", "hip hop", "jazz", "classical music", "indie", "r&b", "latin music", "lofi beats"]
+    
+    random_genre = random.choice(genres)
+    tracks = []
+    
+    if random_genre:
+        tracks.extend(search_youtube(random_genre, limit=8))
+    
+    if SOUNDCLOUD_CLIENT_ID:
+        tracks.extend(search_soundcloud(random_genre, limit=4))
+    
+    random.shuffle(tracks)
+    return jsonify(tracks[:12])
 
-        if user_id not in user_data:
-            user_data[user_id] = {'listeningHistory': []}
-
-        history_item = {
-            'track': data['track'],
-            'playedAt': datetime.now().isoformat(),
-            'playedDuration': data.get('playedDuration', 0)
-        }
-
-        # Add to beginning, keep only last 100 items
-        history = user_data[user_id].get('listeningHistory', [])
-        history.insert(0, history_item)
-        # Remove duplicates and limit to 100
-        seen_ids = set()
-        unique_history = []
-        for item in history:
-            track_id = item['track']['id']
-            if track_id not in seen_ids:
-                seen_ids.add(track_id)
-                unique_history.append(item)
-            if len(unique_history) >= 100:
-                break
-
-        user_data[user_id]['listeningHistory'] = unique_history
-        return jsonify({'success': True})
-
-    else:
-        # Get history
-        history = user_data.get(user_id, {}).get('listeningHistory', [])
-        return jsonify(history)
-
-
-if __name__ == '__main__':
-    print('--- Бэкенд AuroraTunes запущен на порту 5000 ---')
-    app.run(debug=False, port=5000)
+if __name__ == "__main__":
+    print("🚀 AuroraTunes Backend (YouTube + SoundCloud) запущено")
+    print("   Пошук:      GET http://localhost:5000/search?q=query")
+    print("   Стрім:      GET http://localhost:5000/stream/youtube/{id}")
+    print("               GET http://localhost:5000/stream/soundcloud/{id}")
+    app.run(debug=True, port=5000, host="0.0.0.0")
