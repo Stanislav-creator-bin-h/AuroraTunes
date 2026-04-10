@@ -20,20 +20,6 @@ interface FullscreenPlayerProps {
   onViewModeChange: (mode: "lyrics" | "minimal" | "circle") => void
 }
 
-// Demo lyrics with timestamps
-const demoLyrics = [
-  { time: 0, text: "Скільки часу пройшло або скільки літ?" },
-  { time: 8, text: "Ха-ха, чьо, повірили, блять?" },
-  { time: 15, text: "Вона знає, чому в мене дірки в штанах" },
-  { time: 22, text: 'Вона попалась на "Сосала?" і відповіла: Да' },
-  { time: 30, text: "Я так люблю тебе, повір, але між нами хуйня" },
-  { time: 38, text: "І я хз почему, але вже боюсь без тебе" },
-  { time: 45, text: "Ти мої сльози витираєш своїми губами" },
-  { time: 52, text: "І я хочу щоб ти залишилась назавжди" },
-  { time: 60, text: "Ми з тобою як день і ніч" },
-  { time: 68, text: "Але разом ми створюємо щось особливе" },
-]
-
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
@@ -115,11 +101,6 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
   const [isShuffle, setIsShuffle] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
   const [playbackSpeed, setPlaybackSpeed] = useState(1)
-
-  const currentLyricIndex = demoLyrics.findIndex((lyric, i) => {
-    const nextLyric = demoLyrics[i + 1]
-    return currentTime >= lyric.time && (!nextLyric || currentTime < nextLyric.time)
-  })
 
   const handleSeek = useCallback((value: number[]) => {
     if (duration) seek((value[0] / 100) * duration)
@@ -219,22 +200,9 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
             {/* Lyrics */}
             <div className="flex-1 pt-4">
               <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-4 scrollbar-thin">
-                {demoLyrics.map((lyric, index) => (
-                  <p
-                    key={index}
-                    onClick={() => seek(lyric.time)}
-                    className={cn(
-                      "text-2xl md:text-3xl leading-relaxed cursor-pointer transition-all duration-300",
-                      index === currentLyricIndex
-                        ? "text-white font-medium scale-105 origin-left"
-                        : index < currentLyricIndex
-                        ? "text-white/25"
-                        : "text-white/40 hover:text-white/60"
-                    )}
-                  >
-                    {lyric.text}
-                  </p>
-                ))}
+                <p className="text-2xl md:text-3xl leading-relaxed text-white/50 text-center">
+                  Текст пісні буде завантажений тут
+                </p>
               </div>
             </div>
           </div>
