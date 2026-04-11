@@ -14,7 +14,7 @@ const extraBackgrounds = [
   "https://images.unsplash.com/photo-1483728642387-6c3bdd6c93e5?w=1920&q=80",
 ]
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 
 interface BackgroundItemProps {
@@ -26,12 +26,12 @@ interface BackgroundItemProps {
   onDelete: () => void
 }
 
-const BackgroundItem = memo(function BackgroundItem({ 
-  url, index, isSelected, isUserBg, onSelect, onDelete 
+const BackgroundItem = memo(function BackgroundItem({
+  url, index, isSelected, isUserBg, onSelect, onDelete
 }: BackgroundItemProps) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
-  
+
   return (
     <div className="relative group">
       <button
@@ -56,10 +56,7 @@ const BackgroundItem = memo(function BackgroundItem({
           <img
             src={url}
             alt={`Фон ${index + 1}`}
-            className={cn(
-              "w-full h-full object-cover transition-opacity duration-300",
-              isLoaded ? "opacity-100" : "opacity-0"
-            )}
+            className={cn("w-full h-full object-cover transition-opacity duration-300", isLoaded ? "opacity-100" : "opacity-0")}
             onLoad={() => setIsLoaded(true)}
             onError={() => setHasError(true)}
             loading="lazy"
@@ -86,7 +83,7 @@ const BackgroundItem = memo(function BackgroundItem({
 })
 
 export function SettingsPanel() {
-  const { backgroundUrl, setBackgroundUrl } = useBackground()
+  const { backgroundUrl, setBackgroundUrl, brightness, setBrightness } = useBackground()
   const { user, addCustomBackground, removeCustomBackground } = useAuth()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadError, setUploadError] = useState<string | null>(null)
@@ -95,58 +92,35 @@ export function SettingsPanel() {
   const allBackgrounds = [
     ...defaultBackgrounds,
     ...extraBackgrounds,
-    ...(user?.customBackgrounds || [])
+    ...(user?.customBackgrounds || []),
   ]
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     setUploadError(null)
-
-    // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setUploadError("Підтримуються тільки JPG, PNG, GIF та WebP")
-      return
-    }
-
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
-      setUploadError("Файл занадто великий (макс. 10MB)")
-      return
-    }
-
+    if (!ALLOWED_TYPES.includes(file.type)) { setUploadError("Підтримуються тільки JPG, PNG, GIF та WebP"); return }
+    if (file.size > MAX_FILE_SIZE) { setUploadError("Файл занадто великий (макс. 10MB)"); return }
     setIsUploading(true)
-
     const reader = new FileReader()
-    reader.onload = (event) => {
-      const result = event.target?.result as string
+    reader.onload = (ev) => {
+      const result = ev.target?.result as string
       addCustomBackground(result)
       setBackgroundUrl(result)
       setIsUploading(false)
     }
-    reader.onerror = () => {
-      setUploadError("Помилка читання файлу")
-      setIsUploading(false)
-    }
+    reader.onerror = () => { setUploadError("Помилка читання файлу"); setIsUploading(false) }
     reader.readAsDataURL(file)
-    
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""
-    }
+    if (fileInputRef.current) fileInputRef.current.value = ""
   }, [addCustomBackground, setBackgroundUrl])
 
   const handleDeleteBackground = useCallback((url: string) => {
     removeCustomBackground(url)
-    if (backgroundUrl === url) {
-      setBackgroundUrl(defaultBackgrounds[0])
-    }
+    if (backgroundUrl === url) setBackgroundUrl(defaultBackgrounds[0])
   }, [backgroundUrl, removeCustomBackground, setBackgroundUrl])
 
-  const isUserBackground = useCallback((url: string) => {
-    return user?.customBackgrounds?.includes(url) ?? false
-  }, [user?.customBackgrounds])
+  const isUserBackground = useCallback((url: string) =>
+    user?.customBackgrounds?.includes(url) ?? false, [user?.customBackgrounds])
 
   return (
     <div className="space-y-8">
@@ -155,7 +129,7 @@ export function SettingsPanel() {
         <p className="text-white/60 text-base font-medium">Кастомізуйте свій плеєр</p>
       </div>
 
-      {/* Background Selection */}
+      {/* Backgrounds */}
       <div className="bg-white/8 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -169,9 +143,10 @@ export function SettingsPanel() {
                 variant="outline"
                 size="sm"
                 className="border-white/30 text-white hover:bg-white/15 font-medium"
+                disabled={isUploading}
               >
                 <Upload className="w-4 h-4 mr-2" />
-                Завантажити
+                {isUploading ? "Завантаження..." : "Завантажити"}
               </Button>
               <input
                 ref={fileInputRef}
@@ -197,38 +172,59 @@ export function SettingsPanel() {
             />
           ))}
         </div>
-        
+
         {uploadError && (
           <div className="mt-6 p-4 bg-red-500/20 border border-red-500/40 rounded-xl flex items-center gap-3">
             <AlertCircle className="w-5 h-5 text-red-400 shrink-0" />
             <p className="text-red-400 text-base font-medium">{uploadError}</p>
           </div>
         )}
-        
-        {isUploading && (
-          <div className="mt-6 p-4 bg-white/10 backdrop-blur-md rounded-xl">
-            <p className="text-white/70 text-base font-medium">Завантаження...</p>
-          </div>
-        )}
-        
+
         <p className="text-white/50 text-sm mt-6 font-medium">
           Підтримуються: JPG, PNG, GIF, WebP (макс. 10MB)
         </p>
-        
         {!user && (
-          <p className="text-white/50 text-base mt-6 text-center font-medium">
+          <p className="text-white/50 text-base mt-4 text-center font-medium">
             Увійдіть в профіль, щоб завантажувати власні фони
           </p>
         )}
       </div>
 
-      {/* Theme Section */}
+      {/* Brightness Slider */}
       <div className="bg-white/8 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-lg">
-        <h3 className="text-2xl font-bold text-white mb-4">Тема</h3>
+        <h3 className="text-2xl font-bold text-white mb-2">Яскравість фону</h3>
+        <p className="text-white/60 text-base font-medium mb-6">Налаштуйте затемнення фонового зображення</p>
+        <div className="flex items-center gap-4">
+          <span className="text-white/50 text-sm font-medium w-14">Темний</span>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={brightness ?? 50}
+            onChange={(e) => setBrightness(Number(e.target.value))}
+            className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer hover:bg-white/30 transition-colors
+              [&::-webkit-slider-thumb]:appearance-none
+              [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5
+              [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white
+              [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-lg
+              [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:transition-transform
+              [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5
+              [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-white
+              [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:shadow-lg"
+          />
+          <span className="text-white/50 text-sm font-medium w-14 text-right">Світлий</span>
+          <span className="text-white/70 text-sm font-mono w-8 text-right">{brightness ?? 50}%</span>
+        </div>
+      </div>
+
+      {/* Theme */}
+      <div className="bg-white/8 backdrop-blur-xl border border-white/15 rounded-2xl p-8 shadow-lg">
+        <h3 className="text-2xl font-bold text-white mb-2">Тема</h3>
         <p className="text-white/60 text-base font-medium mb-5">Темна тема завжди активна</p>
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-purple-600 border border-white/20 flex items-center justify-center shadow-md">
-            <Check className="w-6 h-6 text-white font-bold" />
+            <Check className="w-6 h-6 text-white" />
           </div>
           <span className="text-white/80 text-lg font-semibold">Темна</span>
         </div>
