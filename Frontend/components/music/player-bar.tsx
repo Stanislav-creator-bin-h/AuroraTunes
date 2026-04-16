@@ -18,7 +18,7 @@ interface PlayerBarProps {
 }
 
 export function PlayerBar({ onExpandClick }: PlayerBarProps) {
-  const { currentTrack, isPlaying, togglePlay, volume, setVolume, progress, currentTime, duration, seek } = usePlayer()
+  const { currentTrack, isPlaying, togglePlay, volume, setVolume, progress, currentTime, duration, seek, prevTrack, nextTrack } = usePlayer()
   const [isLiked, setIsLiked] = useState(false)
   const [isMuted, setIsMuted] = useState(false)
   const [prevVolume, setPrevVolume] = useState(volume)
@@ -41,73 +41,79 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
   }
 
   return (
-    <div className="h-24 bg-white/8 backdrop-blur-2xl border-t border-white/15 px-6 flex items-center shadow-2xl">
-      {/* Left: Track Info */}
-      <div className="w-1/4 flex items-center gap-4">
+    <div className="grid gap-4 px-4 py-3 sm:px-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,1.5fr)_minmax(0,1fr)] lg:items-center">
+      <div className="min-w-0">
         {currentTrack ? (
-          <>
-            <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-white/10 shrink-0 shadow-lg">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="glass-tile relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl">
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="min-w-0">
-              <p className="text-white text-base font-semibold truncate">{currentTrack.title}</p>
-              <p className="text-white/60 text-sm truncate">{currentTrack.channel}</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-white sm:text-base">{currentTrack.title}</p>
+              <p className="truncate text-xs text-white/60 sm:text-sm">{currentTrack.channel}</p>
             </div>
             <button
               onClick={() => setIsLiked(!isLiked)}
-              className="ml-2 p-2 hover:bg-white/10 rounded-full transition-colors hover:scale-110 duration-200"
+              className="hidden rounded-2xl p-2 transition-colors duration-200 hover:bg-white/10 hover:scale-110 sm:block"
             >
               <Heart className={cn("w-5 h-5", isLiked ? "fill-red-500 text-red-500" : "text-white/50 hover:text-white")} />
             </button>
-          </>
+          </div>
         ) : (
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 rounded-xl bg-white/8 flex items-center justify-center shadow-md">
+            <div className="glass-tile flex h-14 w-14 items-center justify-center rounded-2xl">
               <ListMusic className="w-6 h-6 text-white/30" />
             </div>
-            <div>
-              <p className="text-white/50 text-base font-medium">Черга пуста</p>
-              <p className="text-white/30 text-sm">Виберіть трек</p>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white/50 sm:text-base">Черга пуста</p>
+              <p className="text-xs text-white/30 sm:text-sm">Виберіть трек</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Center: Controls */}
-      <div className="flex-1 flex flex-col items-center gap-2 max-w-2xl mx-auto">
-        <div className="flex items-center gap-6">
-          <button className="p-2 text-white/50 hover:text-white transition-colors hover:scale-110 duration-200">
+      <div className="order-first flex min-w-0 flex-col gap-3 lg:order-none">
+        <div className="flex items-center justify-center gap-3 sm:gap-5">
+          <button className="p-2 text-white/50 transition-colors duration-200 hover:scale-110 hover:text-white">
             <Shuffle className="w-4 h-4" />
           </button>
-          <button className="p-2 text-white/50 hover:text-white transition-colors hover:scale-110 duration-200">
+          <button
+            onClick={prevTrack}
+            disabled={!currentTrack}
+            className="p-2 text-white/50 transition-colors duration-200 hover:scale-110 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
             <SkipBack className="w-5 h-5" />
           </button>
           <button
             onClick={togglePlay}
             disabled={!currentTrack}
             className={cn(
-              "w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 font-bold text-lg shadow-lg",
+              "flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold shadow-lg transition-all duration-300 sm:h-14 sm:w-14",
               currentTrack
                 ? "bg-gradient-to-r from-blue-400 to-purple-600 text-white hover:scale-110 hover:shadow-xl"
-                : "bg-white/20 text-white/50 cursor-not-allowed"
+                : "cursor-not-allowed bg-white/20 text-white/50"
             )}
           >
-            {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-1" />}
+            {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="ml-1 w-6 h-6" />}
           </button>
-          <button className="p-2 text-white/50 hover:text-white transition-colors hover:scale-110 duration-200">
+          <button
+            onClick={nextTrack}
+            disabled={!currentTrack}
+            className="p-2 text-white/50 transition-colors duration-200 hover:scale-110 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+          >
             <SkipForward className="w-5 h-5" />
           </button>
-          <button className="p-2 text-white/50 hover:text-white transition-colors hover:scale-110 duration-200">
+          <button className="p-2 text-white/50 transition-colors duration-200 hover:scale-110 hover:text-white">
             <Repeat className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="w-full flex items-center gap-3">
-          <span className="text-white/50 text-xs w-10 text-right font-medium">{formatTime(currentTime)}</span>
+        <div className="flex w-full min-w-0 items-center gap-2 sm:gap-3">
+          <span className="w-10 shrink-0 text-right text-[11px] font-medium text-white/50 sm:text-xs">{formatTime(currentTime)}</span>
           <Slider
             value={[progress]}
             max={1}
@@ -115,13 +121,12 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             onValueChange={handleSeek}
             className="flex-1"
           />
-          <span className="text-white/50 text-xs w-10 font-medium">{formatTime(duration)}</span>
+          <span className="w-10 shrink-0 text-[11px] font-medium text-white/50 sm:text-xs">{formatTime(duration)}</span>
         </div>
       </div>
 
-      {/* Right: Volume & Expand */}
-      <div className="w-1/4 flex items-center justify-end gap-3">
-        <button onClick={handleVolumeToggle} className="p-2 text-white/50 hover:text-white transition-colors hover:scale-110 duration-200">
+      <div className="flex min-w-0 items-center justify-between gap-3 lg:justify-end">
+        <button onClick={handleVolumeToggle} className="p-2 text-white/50 transition-colors duration-200 hover:scale-110 hover:text-white">
           {isMuted || volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
         </button>
         <Slider
@@ -132,12 +137,12 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             setVolume(v[0])
             setIsMuted(false)
           }}
-          className="w-24"
+          className="w-full max-w-32"
         />
         {currentTrack && (
           <button
             onClick={onExpandClick}
-            className="p-2 text-white/50 hover:text-white transition-colors hover:scale-110 duration-200 ml-2"
+            className="ml-1 p-2 text-white/50 transition-colors duration-200 hover:scale-110 hover:text-white"
             title="Розгорнути плеєр"
           >
             <Maximize2 className="w-5 h-5" />

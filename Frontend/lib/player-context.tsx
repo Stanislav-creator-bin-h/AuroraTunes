@@ -1,7 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react"
-import { getStreamUrl, savePlayerState as savePlayerStateApi, loadPlayerState, addToListeningHistory } from "./api"
+import { getStreamUrl, savePlayerState as savePlayerStateApi, addToListeningHistory } from "./api"
 import { useAuth } from "./auth-context"
 import type { Track } from "./types"
 

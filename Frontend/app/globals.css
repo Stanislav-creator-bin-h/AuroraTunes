@@ -4,74 +4,83 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #0a0a0f;
-  --foreground: #ffffff;
-  --card: rgba(255, 255, 255, 0.05);
-  --card-foreground: #ffffff;
-  --popover: rgba(255, 255, 255, 0.08);
-  --popover-foreground: #ffffff;
+  /* Core palette — deep space dark */
+  --background: #08080f;
+  --foreground: #f0f0ff;
+
+  /* Glass surfaces */
+  --glass-1: rgba(255, 255, 255, 0.06);
+  --glass-2: rgba(255, 255, 255, 0.09);
+  --glass-3: rgba(255, 255, 255, 0.13);
+
+  /* Borders */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-default: rgba(255, 255, 255, 0.12);
+  --border-strong: rgba(255, 255, 255, 0.20);
+
+  /* Accent — violet/indigo */
+  --accent-primary: #7c6ff7;
+  --accent-glow: rgba(124, 111, 247, 0.35);
+  --accent-soft: rgba(124, 111, 247, 0.15);
+
+  /* Shadcn tokens */
+  --card: var(--glass-1);
+  --card-foreground: #f0f0ff;
+  --popover: rgba(18, 18, 30, 0.95);
+  --popover-foreground: #f0f0ff;
   --primary: #ffffff;
-  --primary-foreground: #0a0a0f;
-  --secondary: rgba(255, 255, 255, 0.1);
-  --secondary-foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.05);
-  --muted-foreground: #9ca3af;
-  --accent: rgba(255, 255, 255, 0.1);
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  --primary-foreground: #08080f;
+  --secondary: var(--glass-2);
+  --secondary-foreground: #f0f0ff;
+  --muted: rgba(255, 255, 255, 0.04);
+  --muted-foreground: rgba(255, 255, 255, 0.40);
+  --accent: var(--glass-2);
+  --accent-foreground: #f0f0ff;
+  --destructive: #f04040;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.1);
-  --ring: rgba(255, 255, 255, 0.2);
+  --border: var(--border-default);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(124, 111, 247, 0.50);
+  --radius: 0.75rem;
+
+  /* Sidebar */
+  --sidebar: rgba(255, 255, 255, 0.025);
+  --sidebar-foreground: rgba(255, 255, 255, 0.70);
+  --sidebar-primary: #ffffff;
+  --sidebar-primary-foreground: #08080f;
+  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: rgba(124, 111, 247, 0.40);
+
+  /* Charts */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.75rem;
-  --sidebar: rgba(255, 255, 255, 0.03);
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #0a0a0f;
-  --sidebar-accent: rgba(255, 255, 255, 0.1);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: rgba(255, 255, 255, 0.2);
 }
 
 .dark {
-  --background: #0a0a0f;
-  --foreground: #ffffff;
-  --card: rgba(255, 255, 255, 0.05);
-  --card-foreground: #ffffff;
-  --popover: rgba(255, 255, 255, 0.08);
-  --popover-foreground: #ffffff;
+  --background: #08080f;
+  --foreground: #f0f0ff;
+  --card: var(--glass-1);
+  --card-foreground: #f0f0ff;
+  --popover: rgba(14, 14, 24, 0.96);
+  --popover-foreground: #f0f0ff;
   --primary: #ffffff;
-  --primary-foreground: #0a0a0f;
-  --secondary: rgba(255, 255, 255, 0.1);
-  --secondary-foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.05);
-  --muted-foreground: #9ca3af;
-  --accent: rgba(255, 255, 255, 0.1);
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  --primary-foreground: #08080f;
+  --secondary: var(--glass-2);
+  --secondary-foreground: #f0f0ff;
+  --muted: rgba(255, 255, 255, 0.04);
+  --muted-foreground: rgba(255, 255, 255, 0.38);
+  --accent: var(--glass-2);
+  --accent-foreground: #f0f0ff;
+  --destructive: #f04040;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.1);
-  --ring: rgba(255, 255, 255, 0.2);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: rgba(255, 255, 255, 0.03);
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #0a0a0f;
-  --sidebar-accent: rgba(255, 255, 255, 0.1);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: rgba(255, 255, 255, 0.2);
+  --border: var(--border-default);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(124, 111, 247, 0.50);
 }
 
 @theme inline {
@@ -115,31 +124,284 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ─── Base ──────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
+
+  html, body {
+    height: 100%;
+    overflow: hidden; /* app-shell: скрол тільки всередині панелей */
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-inter), system-ui, -apple-system, sans-serif;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Виділення тексту */
+  ::selection {
+    background: var(--accent-soft);
+    color: #fff;
   }
 }
 
-/* Custom scrollbar */
+/* ─── Glass panels ──────────────────────────────────────── */
+@layer utilities {
+
+  /* Панель 1 — бічна навігація, підвал */
+  .glass-panel {
+    background: linear-gradient(160deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.03) 100%
+    );
+    border: 1px solid var(--border-subtle);
+    backdrop-filter: blur(28px) saturate(180%);
+    -webkit-backdrop-filter: blur(28px) saturate(180%);
+  }
+
+  .glass-panel-sidebar {
+  backdrop-filter: blur(90px) saturate(220%) contrast(110%);
+  -webkit-backdrop-filter: blur(90px) saturate(220%) contrast(110%);
+
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.12) 50%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+}
+
+  .glass-tile {
+  background: linear-gradient(160deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border: 1px solid var(--border-default);
+  
+backdrop-filter: blur(40px) saturate(200%); 
+  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+  .glass-tile:hover {
+   background: linear-gradient(160deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+    );
+    border-color: var(--border-strong);
+    
+  }
+
+
+  
+
+
+
+
+  /* Нижня панель плеєра — важливо: фон непрозорий знизу */
+  .player-bar {
+    background: linear-gradient(180deg,
+      rgba(10, 10, 20, 0.70) 0%,
+      rgba(8, 8, 15, 0.92) 100%
+      
+    );
+    border-top: 1px solid var(--border-subtle);
+    backdrop-filter: blur(40px) saturate(200%);
+    -webkit-backdrop-filter: blur(40px) saturate(200%);
+  }
+
+  /* Бічна панель навігації */
+  .sidebar-panel {
+    background: linear-gradient(180deg,
+      rgba(255, 255, 255, 0.04) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+    border-right: 1px solid var(--border-subtle);
+    backdrop-filter: blur(32px);
+    -webkit-backdrop-filter: blur(32px);
+  }
+
+  /* Фоновий градієнт-оверлей поверх картинки */
+  .app-overlay {
+    background:
+      /* Верхня виньєтка */
+      linear-gradient(180deg,
+        rgba(8, 8, 15, 0.55) 0%,
+        transparent 35%
+      ),
+      /* Нижня виньєтка — більш насичена, щоб плеєр читався */
+      linear-gradient(0deg,
+        rgba(8, 8, 15, 0.90) 0%,
+        rgba(8, 8, 15, 0.40) 30%,
+        transparent 60%
+      ),
+      /* Тонкий кольоровий акцент */
+      radial-gradient(ellipse 80% 50% at 50% 0%,
+        rgba(100, 80, 220, 0.12) 0%,
+        transparent 70%
+      );
+  }
+
+  /* Кнопка навігації — активний стан */
+  .nav-btn-active {
+    background: rgba(255, 255, 255, 0.12);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    color: #ffffff;
+  }
+
+  /* Треки — hover */
+  .track-row {
+    transition: background 0.15s ease;
+    border-radius: 10px;
+  }
+  .track-row:hover {
+    background: rgba(255, 255, 255, 0.07);
+  }
+  .track-row.playing {
+    background: rgba(124, 111, 247, 0.12);
+    border: 1px solid rgba(124, 111, 247, 0.20);
+  }
+
+  /* Accent glow — для активних елементів */
+  .accent-glow {
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
+
+  /* Progress bar — кастомний */
+  .progress-track {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 2px;
+    cursor: pointer;
+    transition: height 0.15s ease;
+  }
+  .progress-track:hover {
+    height: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #a78bfa, #818cf8);
+    border-radius: 2px;
+    pointer-events: none;
+  }
+
+  /* Range input — глобальні стилі */
+  input[type='range'] {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: height 0.15s ease;
+  }
+  input[type='range']:hover {
+    height: 6px;
+  }
+  input[type='range']::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffffff;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+  }
+  input[type='range']:hover::-webkit-slider-thumb,
+  input[type='range']:focus::-webkit-slider-thumb {
+    opacity: 1;
+  }
+  input[type='range']::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 12px rgba(255,255,255,0.4);
+  }
+  input[type='range']::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffffff;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 0 6px rgba(0,0,0,0.5);
+  }
+
+  /* Кнопки плеєра */
+  .player-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: color 0.15s ease, transform 0.1s ease, background 0.15s ease;
+    color: rgba(255,255,255,0.55);
+  }
+  .player-btn:hover {
+    color: #ffffff;
+    transform: scale(1.08);
+  }
+  .player-btn:active {
+    transform: scale(0.94);
+  }
+  .player-btn-play {
+    background: #ffffff;
+    color: #08080f;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  }
+  .player-btn-play:hover {
+    transform: scale(1.06);
+    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+  }
+  .player-btn-play:active {
+    transform: scale(0.95);
+  }
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
-
 ::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+/* ─── Animations ────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 1; }
+}
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-fade-up   { animation: fadeUp 0.3s ease forwards; }
+.animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
+.animate-spin-slow { animation: spin-slow 8s linear infinite; }

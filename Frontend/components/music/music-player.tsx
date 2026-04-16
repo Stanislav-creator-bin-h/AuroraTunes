@@ -13,41 +13,36 @@ function MusicPlayerInner() {
   const [activeTab, setActiveTab] = useState("home")
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<"lyrics" | "minimal" | "circle">("lyrics")
-  const { backgroundUrl } = useBackground()
+  const { backgroundUrl, brightness } = useBackground()
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-black selection:bg-white/20">
+    <div className="relative h-screen min-h-[600px] w-full min-w-[900px] overflow-hidden bg-black selection:bg-white/20">
       
-      {/* 1. Dynamic Background Layer */}
       <div 
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${backgroundUrl})` }}
       />
       
-      {/* 2. Overlay - тут налаштовується загальна темрява фону */}
-      <div className="absolute inset-0 z-[1] bg-black/50" />
+      <div
+        className="absolute inset-0 z-[1] bg-black"
+        style={{ opacity: 0 }}
+      />
       
-      {/* 3. App Container */}
-      <div className="relative z-10 h-full flex flex-col p-2 sm:p-3 gap-2 sm:gap-3">
+      <div className="relative z-10 flex h-full flex-col gap-2 p-2 sm:p-3">
         
-        {/* Верхня частина: Сайдбар + Контент */}
-        <div className="flex-1 flex gap-2 sm:gap-3 overflow-hidden">
-          {/* Сайдбар тепер передає свою прозорість сам, тут ми просто даємо йому місце */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:flex-row lg:gap-3">
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
           
-          {/* Основне вікно (плитка з контентом) */}
-          <main className="flex-1 bg-black/20 backdrop-blur-md rounded-[24px] border border-white/5 overflow-hidden">
+          <main className="glass-panel app-fade min-h-0 flex-1 overflow-hidden rounded-[28px]">
             <MainContent activeTab={activeTab} />
           </main>
         </div>
 
-        {/* Плеєр (нижня плитка) */}
-        <footer className="h-20 sm:h-24 bg-black/30 backdrop-blur-xl rounded-[24px] border border-white/5 shadow-2xl">
+        <footer className="glass-panel overflow-hidden rounded-[28px]">
           <PlayerBar onExpandClick={() => setShowFullscreen(true)} />
         </footer>
       </div>
 
-      {/* Fullscreen Player із плавним переходом */}
       {showFullscreen && (
         <div className="fixed inset-0 z-[100] animate-in fade-in zoom-in duration-300">
           <FullscreenPlayer

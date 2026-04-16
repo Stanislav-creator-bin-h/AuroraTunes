@@ -136,7 +136,7 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
             onClick={onClose}
             className="p-2 text-white/60 hover:text-white hover:bg-white/15 rounded-lg transition-all duration-200 hover:scale-110"
           >
-            <Home className="w-5 h-5" />
+            <Home className="w-0 h-5" />
           </button>
           <button aria-label="Бібліотека" className="p-2 text-white/60 hover:text-white hover:bg-white/15 rounded-lg transition-all duration-200 hover:scale-110">
             <Library className="w-5 h-5" />
@@ -350,7 +350,7 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
         <div className="h-full flex flex-col items-center justify-center px-8 pt-20 pb-24">
           {/* Extra blur from album */}
           <div 
-            className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-110"
+            className="absolute inset-0 bg-cover bg-center opacity-50 blur-[80px]"
             style={{ backgroundImage: `url(${currentTrack.thumbnail})` }}
           />
           

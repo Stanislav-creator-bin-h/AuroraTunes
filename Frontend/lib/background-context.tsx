@@ -4,7 +4,9 @@ import { createContext, useContext, useState, type ReactNode } from "react"
 
 interface BackgroundContextType {
   backgroundUrl: string
+  brightness: number
   setBackgroundUrl: (url: string) => void
+  setBrightness: (value: number) => void
 }
 
 const BackgroundContext = createContext<BackgroundContextType | null>(null)
@@ -18,9 +20,10 @@ const defaultBackgrounds = [
 
 export function BackgroundProvider({ children }: { children: ReactNode }) {
   const [backgroundUrl, setBackgroundUrl] = useState(defaultBackgrounds[0])
+  const [brightness, setBrightness] = useState(50)
 
   return (
-    <BackgroundContext.Provider value={{ backgroundUrl, setBackgroundUrl }}>
+    <BackgroundContext.Provider value={{ backgroundUrl, brightness, setBackgroundUrl, setBrightness }}>
       {children}
     </BackgroundContext.Provider>
   )

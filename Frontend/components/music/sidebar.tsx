@@ -1,8 +1,7 @@
 "use client"
 
-import { Home, Search, LibraryBig, Settings, Heart, ListMusic, Radio, User, Play } from "lucide-react"
+import { Home, Search, LibraryBig, Settings, Heart, ListMusic, Radio, User } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useAuth } from "@/lib/auth-context"
 
 interface SidebarProps {
   activeTab: string
@@ -10,94 +9,78 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { id: "home", icon: Home, label: "Головна" },
-  { id: "now-playing", icon: Play, label: "Зараз грає" },
-  { id: "search", icon: Search, label: "Пошук" },
-  { id: "library", icon: LibraryBig, label: "Бібліотека" },
-]
-
-const libraryItems = [
-  { id: "liked", icon: Heart, label: "Вподобані" },
-  { id: "playlists", icon: ListMusic, label: "Плейлисти" },
-  { id: "radio", icon: Radio, label: "Радіо" },
+  { id: "home", icon: Home, label: "Home" },
+  { id: "search", icon: Search, label: "Search" },
+  { id: "library", icon: LibraryBig, label: "Library" },
+  { id: "liked", icon: Heart, label: "Liked" },
+  { id: "playlists", icon: ListMusic, label: "Playlists" },
+  { id: "radio", icon: Radio, label: "Radio" },
 ]
 
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
-    <aside 
-      className={cn(
-        // 1. ЗМЕНШЕННЯ ШИРИНИ ТА ВІДСТУПІВ
-        "w-[58px] h-fit max-h-[calc(100vh-40px)] ml-3 my-auto", 
-        // 2. ПРОЗОРІСТЬ 50%
-        "bg-[#121212]/50 backdrop-blur-2xl", 
-        "rounded-[20px] flex flex-col items-center py-4 border border-white/5 shadow-2xl"
-      )}
-    >
-      
-      {/* Лого - зробив меншим */}
-      <div className="mb-6">
-        <div className="w-8 h-8 rounded-full border-2 border-white/20 flex items-center justify-center">
-          <span className="text-white/30 text-xs">♪</span>
+    <aside
+  className={cn(
+    "glass-panel-sidebar shrink-0 flex flex-col items-center",
+    "h-[calc(100vh-140px)] w-[64px] my-auto ml-4", 
+    "rounded-[20px] z-40 py-6",
+  )}
+>
+      {/* Логотип зверху */}
+      <div className="mb-4 shrink-0">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 border border-white/10">
+          <span className="text-xs font-bold text-white/60">A</span>
         </div>
       </div>
 
-      {/* Навігація - зменшено GAP (відступ між іконками) з 5 до 3 */}
-      <nav className="flex flex-col items-center gap-3 w-full">
-        <div className="flex flex-col gap-3">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-lg transition-all duration-300",
-                activeTab === item.id ? "bg-white/10 text-white" : "text-white/40 hover:text-white"
-              )}
-            >
-              <item.icon className={cn(
-                "w-[20px] h-[20px]", // Зменшено іконки з 24px до 20px
-                item.id === "now-playing" && activeTab === item.id && "fill-current"
-              )} />
-            </button>
-          ))}
-        </div>
-
-        {/* Тонка лінія розриву */}
-        <div className="w-6 h-px bg-white/5 my-1" />
-
-        <div className="flex flex-col gap-3">
-          {libraryItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={cn(
-                "w-10 h-10 flex items-center justify-center rounded-lg transition-all",
-                activeTab === item.id ? "bg-white/10 text-white" : "text-white/40 hover:text-white"
-              )}
-            >
-              <item.icon className="w-[20px] h-[20px]" />
-            </button>
-          ))}
-        </div>
+      {/* ГРУПА ІКОНОК ПО ЦЕНТРУ (як у Win11) */}
+      <nav className="flex-1 w-full flex flex-col items-center justify-center gap-1 overflow-y-auto no-scrollbar">
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            className={cn(
+              "group relative flex h-10 w-10 items-center justify-center transition-all duration-300 my-0.5",
+              activeTab === item.id ? "text-white" : "text-white/80 hover:text-white"
+            )}
+            title={item.label}
+          >
+            {/* Індикатор активності */}
+            {activeTab === item.id && (
+              <div className="absolute left-[-12px] h-4 w-1 rounded-r-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)]" />
+            )}
+            
+            <div className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-200",
+              activeTab === item.id ? "bg-white/10 scale-105" : "group-hover:bg-white/5"
+            )}>
+              <item.icon className="h-[18px] w-[18px]" />
+            </div>
+          </button>
+        ))}
       </nav>
 
-      {/* Нижня частина - компактна */}
-      <div className="mt-6 flex flex-col items-center gap-4 pt-4 border-t border-white/5">
+      {/* Налаштування та Профіль знизу */}
+      <div className="mt-4 flex flex-col items-center gap-3 shrink-0">
         <button
           onClick={() => onTabChange("settings")}
-          className="text-white/40 hover:text-white transition-colors"
+          className={cn(
+            "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
+            activeTab === "settings" ? "bg-white/10 text-white" : "text-white/80 hover:text-white"
+          )}
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="h-[18px] w-[18px]" />
         </button>
         
         <button
           onClick={() => onTabChange("profile")}
           className={cn(
-            "w-8 h-8 rounded-full border transition-all overflow-hidden",
-            activeTab === "profile" ? "border-white" : "border-white/10"
+            "h-9 w-9 overflow-hidden rounded-xl border-2 transition-all duration-300",
+            activeTab === "profile" ? "border-white" : "border-transparent opacity-80 hover:opacity-100"
           )}
         >
-          <div className="w-full h-full bg-neutral-800 flex items-center justify-center">
-             <User className="w-4 h-4 text-white/40" />
+          <div className="flex h-full w-full items-center justify-center bg-neutral-800">
+            <User className="h-4 w-4 text-white/80" />
           </div>
         </button>
       </div>
