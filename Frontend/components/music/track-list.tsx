@@ -13,10 +13,10 @@ export function TrackList({ tracks, title }: TrackListProps) {
     return (
       <div className="glass-panel flex min-h-[280px] flex-col items-center justify-center rounded-[28px] px-6 py-12 text-center">
         <div className="glass-tile mb-6 flex h-24 w-24 items-center justify-center rounded-full">
-          <span className="text-5xl">🎵</span>
+          <span className="text-5xl">♪</span>
         </div>
-        <p className="text-lg font-medium text-white/50">Поки що нічого немає</p>
-        <p className="mt-2 text-base text-white/30">Шукайте улюблену музику</p>
+        <p className="text-lg font-medium text-white/50">Поки що тут порожньо</p>
+        <p className="mt-2 text-base text-white/30">Спробуйте знайти музику або запустити добірку</p>
       </div>
     )
   }

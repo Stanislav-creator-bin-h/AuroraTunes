@@ -1,7 +1,13 @@
 "use client"
 
 import { createContext, useContext, useState, useRef, useCallback, useEffect, type ReactNode } from "react"
-import { getStreamUrl, savePlayerState as savePlayerStateApi, addToListeningHistory } from "./api"
+import {
+  getStreamUrl,
+  savePlayerState as savePlayerStateApi,
+  addToListeningHistory,
+  loadPlayerState as loadPlayerStateApi,
+  getListeningHistory,
+} from "./api"
 import { useAuth } from "./auth-context"
 import type { Track } from "./types"
 
@@ -41,10 +47,9 @@ interface PlayerContextType {
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null)
-
 const PLAYER_STATE_KEY = "aurora_player_state"
 
-function savePlayerState(state: Partial<PlayerState>) {
+function savePlayerStateToStorage(state: Partial<PlayerState>) {
   try {
     const existing = JSON.parse(localStorage.getItem(PLAYER_STATE_KEY) || "{}")
     const updated = { ...existing, ...state, lastSaved: Date.now() }
@@ -78,77 +83,90 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  const togglePlay = useCallback(async () => {
-    if (!audioRef.current) return
-    
-    if (isPlaying) {
-      // Wait for any pending play promise before pausing
-      if (playPromiseRef.current) {
-        try {
-          await playPromiseRef.current
-        } catch {
-          // Ignore errors from interrupted play
-        }
-        playPromiseRef.current = null
-      }
-      audioRef.current.pause()
-      setIsPlaying(false)
-    } else {
+  useEffect(() => {
+    let cancelled = false
+
+    async function restoreState() {
       try {
-        playPromiseRef.current = audioRef.current.play()
-        await playPromiseRef.current
-        setIsPlaying(true)
-      } catch (error) {
-        // Ignore AbortError - it's expected when play is interrupted
-        if (error instanceof Error && error.name !== 'AbortError') {
-          console.error('Playback error:', error)
+        const localState = loadPlayerStateFromStorage()
+        const sourceState = user
+          ? await loadPlayerStateApi(user.id).catch(() => localState)
+          : localState
+
+        if (cancelled || !sourceState) return
+
+        if (typeof sourceState.volume === "number") {
+          setVolumeState(sourceState.volume)
         }
-      } finally {
-        playPromiseRef.current = null
+        if (typeof sourceState.currentTime === "number") {
+          setCurrentTime(sourceState.currentTime)
+        }
+        if (Array.isArray(sourceState.playlist)) {
+          setPlaylistState(sourceState.playlist)
+        }
+        if (sourceState.currentTrack) {
+          setCurrentTrackState(sourceState.currentTrack)
+        }
+        if (Array.isArray(sourceState.listeningHistory)) {
+          setListeningHistory(sourceState.listeningHistory)
+        }
+
+        if (user) {
+          const remoteHistory = await getListeningHistory(user.id).catch(() => null)
+          if (!cancelled && Array.isArray(remoteHistory) && remoteHistory.length > 0) {
+            setListeningHistory(remoteHistory)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to restore player state:", error)
       }
     }
-  }, [isPlaying])
 
-  // Debounced save function
-  const debouncedSave = useCallback(async (state: Partial<PlayerState>) => {
+    restoreState()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user])
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume
+    }
+  }, [volume])
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  const debouncedSave = useCallback((state: Partial<PlayerState>) => {
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+
     saveTimeoutRef.current = setTimeout(async () => {
+      const payload = {
+        currentTrack,
+        currentTime,
+        volume,
+        playlist,
+        listeningHistory,
+        ...state,
+      }
+
       try {
         if (user) {
-          // Save to backend
-          await savePlayerStateApi(user.id, {
-            currentTrack,
-            currentTime,
-            volume,
-            playlist,
-            listeningHistory,
-            ...state
-          })
-        } else {
-          // Save to localStorage
-          savePlayerState({
-            currentTrack,
-            currentTime,
-            volume,
-            playlist,
-            listeningHistory,
-            ...state
-          })
+          await savePlayerStateApi(user.id, payload)
         }
       } catch (error) {
-        console.error("Failed to save player state:", error)
-        // Fallback to localStorage
-        savePlayerState({
-          currentTrack,
-          currentTime,
-          volume,
-          playlist,
-          listeningHistory,
-          ...state
-        })
+        console.error("Failed to save player state to backend:", error)
+      } finally {
+        savePlayerStateToStorage(payload)
       }
-    }, 1000) // Save after 1 second of inactivity
-  }, [user, currentTrack, currentTime, volume, playlist, listeningHistory])
+    }, 500)
+  }, [currentTrack, currentTime, volume, playlist, listeningHistory, user])
 
   const setCurrentTrack = useCallback((track: Track | null) => {
     setCurrentTrackState(track)
@@ -164,65 +182,96 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const historyItem: ListeningHistoryItem = {
       track,
       playedAt: new Date().toISOString(),
-      playedDuration
+      playedDuration,
     }
 
-    setListeningHistory(prev => {
-      const newHistory = [historyItem, ...prev.filter(item => item.track.id !== track.id)].slice(0, 100)
+    setListeningHistory((prev) => {
+      const newHistory = [historyItem, ...prev.filter((item) => item.track.id !== track.id)].slice(0, 100)
       debouncedSave({ listeningHistory: newHistory })
       return newHistory
     })
 
-    // Also save to backend if user is logged in
     if (user) {
       try {
         await addToListeningHistory(user.id, track, playedDuration)
       } catch (error) {
-        console.error("Failed to save to backend history:", error)
+        console.error("Failed to save history to backend:", error)
       }
     }
   }, [debouncedSave, user])
 
+  const togglePlay = useCallback(async () => {
+    if (!audioRef.current) return
+
+    if (isPlaying) {
+      if (playPromiseRef.current) {
+        try {
+          await playPromiseRef.current
+        } catch {
+        }
+        playPromiseRef.current = null
+      }
+
+      audioRef.current.pause()
+      setIsPlaying(false)
+      return
+    }
+
+    try {
+      playPromiseRef.current = audioRef.current.play()
+      await playPromiseRef.current
+      setIsPlaying(true)
+    } catch (error) {
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("Playback error:", error)
+      }
+    } finally {
+      playPromiseRef.current = null
+    }
+  }, [isPlaying])
+
   const clearHistory = useCallback(() => {
     setListeningHistory([])
-    savePlayerState({ listeningHistory: [] })
-  }, [])
+    debouncedSave({ listeningHistory: [] })
+  }, [debouncedSave])
 
   const handleTimeUpdate = useCallback(() => {
-    if (audioRef.current) {
-      const current = audioRef.current.currentTime
-      const dur = audioRef.current.duration || 0
-      setCurrentTime(current)
-      setDuration(dur)
-      setProgress(dur ? current / dur : 0)
+    if (!audioRef.current) return
 
-      // Save current time every 5 seconds
-      if (Math.floor(current) % 5 === 0 && current > 0) {
-        debouncedSave({ currentTime: current })
-      }
+    const current = audioRef.current.currentTime
+    const nextDuration = audioRef.current.duration || 0
+
+    setCurrentTime(current)
+    setDuration(nextDuration)
+    setProgress(nextDuration ? current / nextDuration : 0)
+
+    if (Math.floor(current) % 5 === 0 && current > 0) {
+      debouncedSave({ currentTime: current })
     }
   }, [debouncedSave])
 
   const handleLoadedMetadata = useCallback(() => {
     if (audioRef.current) {
       setDuration(audioRef.current.duration)
+      if (currentTime > 0) {
+        audioRef.current.currentTime = currentTime
+      }
     }
-  }, [])
+  }, [currentTime])
 
   const handleEnded = useCallback(() => {
     setIsPlaying(false)
-    // Add to history when track ends
     if (currentTrack && duration > 10) {
       addToHistory(currentTrack, duration)
     }
-  }, [currentTrack, duration, addToHistory])
+  }, [addToHistory, currentTrack, duration])
 
-  const setVolume = useCallback((vol: number) => {
-    setVolumeState(vol)
+  const setVolume = useCallback((nextVolume: number) => {
+    setVolumeState(nextVolume)
     if (audioRef.current) {
-      audioRef.current.volume = vol
+      audioRef.current.volume = nextVolume
     }
-    debouncedSave({ volume: vol })
+    debouncedSave({ volume: nextVolume })
   }, [debouncedSave])
 
   const seek = useCallback((time: number) => {
@@ -234,18 +283,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [debouncedSave])
 
   const playTrack = useCallback(async (track: Track) => {
-    // Cancel any pending play operation
     if (playPromiseRef.current && audioRef.current) {
       try {
         await playPromiseRef.current
       } catch {
-        // Ignore
       }
       audioRef.current.pause()
       playPromiseRef.current = null
     }
 
-    // Add previous track to history if it was playing for more than 10 seconds
     if (currentTrack && currentTime > 10) {
       addToHistory(currentTrack, currentTime)
     }
@@ -270,18 +316,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } finally {
       playPromiseRef.current = null
     }
-  }, [currentTrack, currentTime, addToHistory, setCurrentTrack])
+  }, [addToHistory, currentTime, currentTrack, setCurrentTrack])
 
   const nextTrack = useCallback(() => {
     if (!currentTrack || playlist.length === 0) return
-    const currentIndex = playlist.findIndex(t => t.id === currentTrack.id)
+    const currentIndex = playlist.findIndex((track) => track.id === currentTrack.id)
     const nextIndex = (currentIndex + 1) % playlist.length
     playTrack(playlist[nextIndex])
   }, [currentTrack, playlist, playTrack])
 
   const prevTrack = useCallback(() => {
     if (!currentTrack || playlist.length === 0) return
-    const currentIndex = playlist.findIndex(t => t.id === currentTrack.id)
+    const currentIndex = playlist.findIndex((track) => track.id === currentTrack.id)
     const prevIndex = currentIndex <= 0 ? playlist.length - 1 : currentIndex - 1
     playTrack(playlist[prevIndex])
   }, [currentTrack, playlist, playTrack])

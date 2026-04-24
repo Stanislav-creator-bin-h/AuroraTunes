@@ -13,9 +13,12 @@ dist-ssr
 *.local
 
 .next/
+.next-build/
 *.tsbuildinfo
+Frontend/public/uploads/
 Backend/venv/
 Backend/__pycache__/
+Backend/data/
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -27,3 +30,4 @@ Backend/__pycache__/
 *.sln
 *.sw?
 .env
+.env.example

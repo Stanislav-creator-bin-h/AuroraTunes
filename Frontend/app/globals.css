@@ -4,87 +4,71 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Core palette — deep space dark */
-  --background: #08080f;
-  --foreground: #f0f0ff;
+  /* Minimalist monochrome palette */
+  --background: #000000;
+  --foreground: #ffffff;
 
-  /* Glass surfaces */
-  --glass-1: rgba(255, 255, 255, 0.06);
-  --glass-2: rgba(255, 255, 255, 0.09);
-  --glass-3: rgba(255, 255, 255, 0.13);
+  /* Glass surfaces - pure grayscale */
+  --glass-1: rgba(20, 20, 20, 0.7);
+  --glass-2: rgba(30, 30, 30, 0.8);
+  --glass-3: rgba(15, 15, 15, 0.9);
 
-  /* Borders */
-  --border-subtle: rgba(255, 255, 255, 0.08);
+  /* Borders - white only */
+  --border-subtle: rgba(255, 255, 255, 0.06);
   --border-default: rgba(255, 255, 255, 0.12);
-  --border-strong: rgba(255, 255, 255, 0.20);
+  --border-strong: rgba(255, 255, 255, 0.24);
 
-  /* Accent — violet/indigo */
-  --accent-primary: #7c6ff7;
-  --accent-glow: rgba(124, 111, 247, 0.35);
-  --accent-soft: rgba(124, 111, 247, 0.15);
+  /* Accent - white */
+  --accent-primary: #ffffff;
+  --accent-secondary: #e5e5e5;
+  --accent-glow: rgba(255, 255, 255, 0.2);
+  --accent-soft: rgba(255, 255, 255, 0.1);
 
   /* Shadcn tokens */
   --card: var(--glass-1);
-  --card-foreground: #f0f0ff;
-  --popover: rgba(18, 18, 30, 0.95);
-  --popover-foreground: #f0f0ff;
+  --card-foreground: #ffffff;
+  --popover: rgba(20, 20, 20, 0.95);
+  --popover-foreground: #ffffff;
   --primary: #ffffff;
-  --primary-foreground: #08080f;
+  --primary-foreground: #000000;
   --secondary: var(--glass-2);
-  --secondary-foreground: #f0f0ff;
-  --muted: rgba(255, 255, 255, 0.04);
-  --muted-foreground: rgba(255, 255, 255, 0.40);
+  --secondary-foreground: #ffffff;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: rgba(255, 255, 255, 0.5);
   --accent: var(--glass-2);
-  --accent-foreground: #f0f0ff;
-  --destructive: #f04040;
+  --accent-foreground: #ffffff;
+  --destructive: #ff4444;
   --destructive-foreground: #ffffff;
   --border: var(--border-default);
   --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(124, 111, 247, 0.50);
+  --ring: rgba(255, 255, 255, 0.4);
   --radius: 0.75rem;
 
   /* Sidebar */
-  --sidebar: rgba(255, 255, 255, 0.025);
-  --sidebar-foreground: rgba(255, 255, 255, 0.70);
+  --sidebar: rgba(255, 255, 255, 0.03);
+  --sidebar-foreground: rgba(255, 255, 255, 0.7);
   --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #08080f;
-  --sidebar-accent: rgba(255, 255, 255, 0.08);
+  --sidebar-primary-foreground: #000000;
+  --sidebar-accent: rgba(255, 255, 255, 0.1);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.07);
-  --sidebar-ring: rgba(124, 111, 247, 0.40);
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: rgba(255, 255, 255, 0.3);
 
   /* Charts */
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-1: #ffffff;
+  --chart-2: #cccccc;
+  --chart-3: #999999;
+  --chart-4: #666666;
+  --chart-5: #333333;
 }
 
 .dark {
-  --background: #08080f;
-  --foreground: #f0f0ff;
-  --card: var(--glass-1);
-  --card-foreground: #f0f0ff;
-  --popover: rgba(14, 14, 24, 0.96);
-  --popover-foreground: #f0f0ff;
-  --primary: #ffffff;
-  --primary-foreground: #08080f;
-  --secondary: var(--glass-2);
-  --secondary-foreground: #f0f0ff;
-  --muted: rgba(255, 255, 255, 0.04);
-  --muted-foreground: rgba(255, 255, 255, 0.38);
-  --accent: var(--glass-2);
-  --accent-foreground: #f0f0ff;
-  --destructive: #f04040;
-  --destructive-foreground: #ffffff;
-  --border: var(--border-default);
-  --input: rgba(255, 255, 255, 0.08);
-  --ring: rgba(124, 111, 247, 0.50);
+  --background: #000000;
+  --foreground: #ffffff;
 }
 
 @theme inline {
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-sans: var(--font-geist), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono), 'Courier New', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -124,7 +108,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* ─── Base ──────────────────────────────────────────────── */
+/* Base styles */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -133,7 +117,7 @@
 
   html, body {
     height: 100%;
-    overflow: hidden; /* app-shell: скрол тільки всередині панелей */
+    overflow: hidden;
   }
 
   body {
@@ -144,264 +128,224 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Виділення тексту */
   ::selection {
-    background: var(--accent-soft);
+    background: rgba(255, 255, 255, 0.2);
     color: #fff;
   }
 }
 
-/* ─── Glass panels ──────────────────────────────────────── */
+/* Glass panels - minimalist */
 @layer utilities {
-
-  /* Панель 1 — бічна навігація, підвал */
   .glass-panel {
-    background: linear-gradient(160deg,
-      rgba(255, 255, 255, 0.07) 0%,
-      rgba(255, 255, 255, 0.03) 100%
-    );
-    border: 1px solid var(--border-subtle);
-    backdrop-filter: blur(28px) saturate(180%);
-    -webkit-backdrop-filter: blur(28px) saturate(180%);
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
   }
 
   .glass-panel-sidebar {
-  backdrop-filter: blur(90px) saturate(220%) contrast(110%);
-  -webkit-backdrop-filter: blur(90px) saturate(220%) contrast(110%);
-
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.12) 50%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
-}
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
 
   .glass-tile {
-  background: linear-gradient(160deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  border: 1px solid var(--border-default);
-  
-backdrop-filter: blur(40px) saturate(200%); 
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
-  
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 16px;
+    transition: all 0.3s ease;
+  }
+
   .glass-tile:hover {
-   background: linear-gradient(160deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-    );
-    border-color: var(--border-strong);
-    
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    transform: translateY(-2px);
   }
 
-
-  
-
-
-
-
-  /* Нижня панель плеєра — важливо: фон непрозорий знизу */
-  .player-bar {
-    background: linear-gradient(180deg,
-      rgba(10, 10, 20, 0.70) 0%,
-      rgba(8, 8, 15, 0.92) 100%
-      
-    );
-    border-top: 1px solid var(--border-subtle);
-    backdrop-filter: blur(40px) saturate(200%);
-    -webkit-backdrop-filter: blur(40px) saturate(200%);
+  .control-pill {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
-  /* Бічна панель навігації */
-  .sidebar-panel {
-    background: linear-gradient(180deg,
-      rgba(255, 255, 255, 0.04) 0%,
-      rgba(255, 255, 255, 0.02) 100%
-    );
-    border-right: 1px solid var(--border-subtle);
-    backdrop-filter: blur(32px);
-    -webkit-backdrop-filter: blur(32px);
+  .hero-panel {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
   }
 
-  /* Фоновий градієнт-оверлей поверх картинки */
-  .app-overlay {
-    background:
-      /* Верхня виньєтка */
-      linear-gradient(180deg,
-        rgba(8, 8, 15, 0.55) 0%,
-        transparent 35%
-      ),
-      /* Нижня виньєтка — більш насичена, щоб плеєр читався */
-      linear-gradient(0deg,
-        rgba(8, 8, 15, 0.90) 0%,
-        rgba(8, 8, 15, 0.40) 30%,
-        transparent 60%
-      ),
-      /* Тонкий кольоровий акцент */
-      radial-gradient(ellipse 80% 50% at 50% 0%,
-        rgba(100, 80, 220, 0.12) 0%,
-        transparent 70%
-      );
-  }
-
-  /* Кнопка навігації — активний стан */
   .nav-btn-active {
     background: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15) inset;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
     color: #ffffff;
   }
 
-  /* Треки — hover */
   .track-row {
-    transition: background 0.15s ease;
-    border-radius: 10px;
+    transition: all 0.2s ease;
+    border-radius: 8px;
   }
+
   .track-row:hover {
-    background: rgba(255, 255, 255, 0.07);
+    background: rgba(255, 255, 255, 0.06);
   }
+
   .track-row.playing {
-    background: rgba(124, 111, 247, 0.12);
-    border: 1px solid rgba(124, 111, 247, 0.20);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
   }
 
-  /* Accent glow — для активних елементів */
-  .accent-glow {
-    box-shadow: 0 0 20px var(--accent-glow);
-  }
-
-  /* Progress bar — кастомний */
   .progress-track {
-    height: 4px;
+    height: 3px;
     background: rgba(255, 255, 255, 0.15);
     border-radius: 2px;
     cursor: pointer;
-    transition: height 0.15s ease;
+    transition: height 0.2s ease;
   }
+
   .progress-track:hover {
-    height: 6px;
+    height: 5px;
   }
+
   .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #a78bfa, #818cf8);
+    background: #ffffff;
     border-radius: 2px;
     pointer-events: none;
   }
 
-  /* Range input — глобальні стилі */
-  input[type='range'] {
-    -webkit-appearance: none;
-    appearance: none;
-    height: 4px;
-    background: rgba(255, 255, 255, 0.18);
-    border-radius: 2px;
-    outline: none;
-    cursor: pointer;
-    transition: height 0.15s ease;
-  }
-  input[type='range']:hover {
-    height: 6px;
-  }
-  input[type='range']::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #ffffff;
-    cursor: pointer;
-    box-shadow: 0 0 6px rgba(0,0,0,0.5);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    opacity: 0;
-    transition: opacity 0.15s ease;
-  }
-  input[type='range']:hover::-webkit-slider-thumb,
-  input[type='range']:focus::-webkit-slider-thumb {
-    opacity: 1;
-  }
-  input[type='range']::-webkit-slider-thumb:hover {
-    transform: scale(1.2);
-    box-shadow: 0 0 12px rgba(255,255,255,0.4);
-  }
-  input[type='range']::-moz-range-thumb {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #ffffff;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 0 6px rgba(0,0,0,0.5);
-  }
-
-  /* Кнопки плеєра */
   .player-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    transition: color 0.15s ease, transform 0.1s ease, background 0.15s ease;
-    color: rgba(255,255,255,0.55);
+    transition: all 0.15s ease;
+    color: rgba(255, 255, 255, 0.6);
   }
+
   .player-btn:hover {
     color: #ffffff;
-    transform: scale(1.08);
+    transform: scale(1.1);
   }
+
   .player-btn:active {
-    transform: scale(0.94);
+    transform: scale(0.95);
   }
+
   .player-btn-play {
     background: #ffffff;
-    color: #08080f;
-    width: 44px;
-    height: 44px;
+    color: #000000;
+    width: 48px;
+    height: 48px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 16px rgba(255, 255, 255, 0.2);
   }
+
   .player-btn-play:hover {
-    transform: scale(1.06);
-    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    transform: scale(1.08);
+    box-shadow: 0 6px 24px rgba(255, 255, 255, 0.3);
   }
+
   .player-btn-play:active {
     transform: scale(0.95);
   }
 }
 
-/* ─── Scrollbar ─────────────────────────────────────────── */
+/* Scrollbar */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.2);
 }
 
-/* ─── Animations ────────────────────────────────────────── */
+/* Range input - minimalist white */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+input[type='range']:hover {
+  height: 5px;
+  background: rgba(255, 255, 255, 0.2);
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.15s ease;
+  opacity: 0;
+}
+
+input[type='range']:hover::-webkit-slider-thumb,
+input[type='range']:focus::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  cursor: pointer;
+}
+
+/* Animations */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
 @keyframes pulse-soft {
-  0%, 100% { opacity: 0.6; }
+  0%, 100% { opacity: 0.5; }
   50%       { opacity: 1; }
 }
+
 @keyframes spin-slow {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
 
-.animate-fade-up   { animation: fadeUp 0.3s ease forwards; }
+.animate-fade-up { animation: fadeUp 0.35s ease forwards; }
 .animate-pulse-soft { animation: pulse-soft 2s ease-in-out infinite; }
-.animate-spin-slow { animation: spin-slow 8s linear infinite; }
+.animate-spin-slow { animation: spin-slow 20s linear infinite; }
+
+.animate-spin-slow.paused {
+  animation-play-state: paused;
+}

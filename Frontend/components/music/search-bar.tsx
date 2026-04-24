@@ -14,7 +14,6 @@ export function SearchBar({ onSearch }: SearchBarProps) {
   const isFirstRender = useRef(true)
 
   useEffect(() => {
-    // Пропускаємо перший рендер — не шукаємо порожній рядок
     if (isFirstRender.current) {
       isFirstRender.current = false
       return
