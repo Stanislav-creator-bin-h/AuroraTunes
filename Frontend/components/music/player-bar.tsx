@@ -53,17 +53,19 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
       {/* Background gradient layer - elegant blur */}
       
       <motion.div
-        initial={{ y: 100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: 100, opacity: 0 }}
-        transition={{ 
-          type: "spring",
-          stiffness: 200,
-          damping: 25,
-          mass: 0.8
-        }}
-        className="relative flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 min-h-[72px]"
-      >
+  initial={{ y: 100, opacity: 0 }}
+  animate={{ y: 0, opacity: 1 }}
+  exit={{ y: 100, opacity: 0 }}
+  transition={{ 
+    type: "spring",
+    stiffness: 200,
+    damping: 25,
+    mass: 0.8
+  }}
+  /* Додано клас player-bar */
+  className="relative flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 min-h-[72px] player-bar"
+>
+        
         {/* Track Info - Left */}
         <motion.div 
           className="flex items-center gap-3 min-w-0 flex-1 sm:flex-initial sm:w-48"
@@ -294,16 +296,7 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             </div>
           </div>
           
-          <div className="w-px h-5 bg-white/10 mx-1" />
-          
-          <motion.button
-            whileHover={{ scale: 1.08 }}
-            whileTap={{ scale: 0.92 }}
-            onClick={onExpandClick}
-            className="flex items-center justify-center w-7 h-7 rounded-lg text-white/35 hover:text-white/60 hover:bg-white/5 transition-all duration-200"
-          >
-            <Maximize2 className="w-3.5 h-3.5" />
-          </motion.button>
+          <div className="w-px h-5 bg-white/10 mx-1" />   
         </motion.div>
       </motion.div>
     </>

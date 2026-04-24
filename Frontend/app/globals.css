@@ -45,7 +45,7 @@
   --radius: 0.75rem;
 
   /* Sidebar */
-  --sidebar: rgba(255, 255, 255, 0.03);
+  --sidebar: rgba(255, 255, 255, 0.13);
   --sidebar-foreground: rgba(255, 255, 255, 0.7);
   --sidebar-primary: #ffffff;
   --sidebar-primary-foreground: #000000;
@@ -147,7 +147,7 @@
   .glass-panel-sidebar {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    background: rgba(0, 0, 0, 0.2);
+    background: rgba(32, 32, 34, 0.55);
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
@@ -174,7 +174,7 @@
   }
 
   .hero-panel {
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(32, 32, 34, 0.45);
     border: 1px solid rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
@@ -225,7 +225,7 @@
     justify-content: center;
     border-radius: 50%;
     transition: all 0.15s ease;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(232, 232, 232, 0.6);
   }
 
   .player-btn:hover {
@@ -277,6 +277,18 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.player-bar {
+  background: rgba(32, 32, 34, 0.70);
+  background-image: linear-gradient(180deg, 
+    rgba(255, 255, 255, 0.03) 0%, 
+    transparent 100%
+  );
+  border-top: 1px solid rgba(255, 255, 255, 0.1); 
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
 }
 
 /* Range input - minimalist white */

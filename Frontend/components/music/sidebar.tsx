@@ -26,11 +26,15 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         "lg:m-0 lg:h-full lg:w-[84px] lg:items-center lg:rounded-[28px] lg:px-3 lg:py-5",
       )}
     >
-      <div className="hidden shrink-0 lg:block">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
-          <span className="text-xs font-bold text-white/60">A</span>
-        </div>
-      </div>
+     <div className="hidden shrink-0 lg:block mb-8 mt-2 px-2">
+  <div className="flex h-30 w-30 ">
+    <img 
+      src="/Icon/AuroraTune_icon_White2.png" 
+      alt="AuroraTunes Logo" 
+      className="h-full w-full object-contain invert saturate-0 opacity-90 transition-opacity hover:opacity-100" 
+    />
+  </div>
+</div>
 
       <nav className="flex min-h-0 w-full flex-1 gap-2 overflow-x-auto overflow-y-hidden lg:flex-col lg:items-center lg:justify-center lg:overflow-x-hidden lg:overflow-y-auto">
         {navItems.map((item) => (
