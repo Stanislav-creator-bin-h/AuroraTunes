@@ -11,25 +11,22 @@ interface TrackCardProps {
   index: number
 }
 
-// Функція для примусового завантаження картинок високої якості
 function getHighResThumbnail(url: string | undefined): string {
-  if (!url) return "https://via.placeholder.com/150"; // Заглушка, якщо картинки немає
-  
-  // Покращення для YouTube (заміна default/mqdefault на hqdefault)
+  if (!url) return "https://via.placeholder.com/150"
+
   if (url.includes("ytimg.com")) {
     return url.replace("default.jpg", "hqdefault.jpg")
-              .replace("mqdefault.jpg", "hqdefault.jpg");
+      .replace("mqdefault.jpg", "hqdefault.jpg")
   }
-  
-  // Покращення для SoundCloud (заміна малих форматів на 500x500)
+
   if (url.includes("sndcdn.com")) {
     return url.replace("-large.jpg", "-t500x500.jpg")
-              .replace("-small.jpg", "-t500x500.jpg")
-              .replace("-tiny.jpg", "-t500x500.jpg")
-              .replace("-badge.jpg", "-t500x500.jpg");
+      .replace("-small.jpg", "-t500x500.jpg")
+      .replace("-tiny.jpg", "-t500x500.jpg")
+      .replace("-badge.jpg", "-t500x500.jpg")
   }
-  
-  return url;
+
+  return url
 }
 
 export function TrackCard({ track, index }: TrackCardProps) {
@@ -44,8 +41,7 @@ export function TrackCard({ track, index }: TrackCardProps) {
     }
   }
 
-  // Отримуємо якісну картинку перед рендером
-  const highResImage = getHighResThumbnail(track.thumbnail);
+  const highResImage = getHighResThumbnail(track.thumbnail)
 
   return (
     <motion.div
@@ -54,37 +50,35 @@ export function TrackCard({ track, index }: TrackCardProps) {
       transition={{ delay: index * 0.05 }}
       onClick={handleClick}
       className={cn(
-        "group flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300",
-        "bg-white/8 backdrop-blur-xl border border-white/15",
+        "glass-panel group flex min-w-0 cursor-pointer items-center gap-3 rounded-[24px] p-3 transition-all duration-300 sm:gap-4 sm:p-4",
         "hover:bg-white/15 hover:border-white/25 hover:shadow-lg",
         isActive && "bg-white/20 border-white/30 shadow-lg"
       )}
     >
-      {/* Thumbnail with Play Overlay */}
-      <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 shadow-md">
+      <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-md sm:h-16 sm:w-16">
         <img
           src={highResImage}
           alt={track.title}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
         />
         <motion.div
           initial={{ opacity: 0 }}
           whileHover={{ opacity: 1 }}
-          className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+          className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
         >
           {isActive && isPlaying ? (
-            <Pause className="w-6 h-6 text-white" />
+            <Pause className="h-6 w-6 text-white" />
           ) : (
-            <Play className="w-6 h-6 text-white ml-0.5" />
+            <Play className="ml-0.5 h-6 w-6 text-white" />
           )}
         </motion.div>
         {isActive && isPlaying && (
-          <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-            <div className="flex items-end gap-0.5 h-4">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <div className="flex h-4 items-end gap-0.5">
               {[...Array(4)].map((_, i) => (
                 <motion.div
                   key={i}
-                  className="w-1 bg-white rounded-full"
+                  className="w-1 rounded-full bg-white"
                   animate={{
                     height: ["4px", "16px", "8px", "12px", "4px"],
                   }}
@@ -100,19 +94,17 @@ export function TrackCard({ track, index }: TrackCardProps) {
         )}
       </div>
 
-      {/* Track Info */}
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0 flex-1">
         <p className={cn(
-          "text-base font-semibold truncate transition-colors",
+          "truncate text-sm font-semibold transition-colors sm:text-base",
           isActive ? "text-white" : "text-white/95"
         )}>
           {track.title}
         </p>
-        <p className="text-sm text-white/60 truncate">{track.channel}</p>
+        <p className="truncate text-xs text-white/60 sm:text-sm">{track.channel}</p>
       </div>
 
-      {/* Duration */}
-      <span className="text-sm text-white/50 shrink-0 font-medium">{track.duration}</span>
+      <span className="shrink-0 text-xs font-medium text-white/50 sm:text-sm">{track.duration}</span>
     </motion.div>
   )
 }

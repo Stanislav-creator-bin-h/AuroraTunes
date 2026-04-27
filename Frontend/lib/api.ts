@@ -19,31 +19,33 @@ export async function searchTracks(query: string, source: string = "all"): Promi
     cache: "no-store",
   })
 
-  if (!response.ok) throw new Error("Search failed");
-  const data = await response.json();
-  return Array.isArray(data) ? data.map(normalizeTrack) : [];
+  if (!response.ok) {
+    throw new Error("Search failed")
+  }
+
+  const data = await response.json()
+  return Array.isArray(data) ? data.map(normalizeTrack) : []
 }
 
 export async function getStreamUrl(track: Track): Promise<string> {
-  // ФОРМАТ: /stream/youtube/123 або /stream/soundcloud/456
   const response = await fetch(`${BACKEND_BASE_URL}/stream/${track.source}/${track.id}`, {
     cache: "no-store",
-  });
+  })
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error || "Не вдалося отримати потік");
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error || "Не вдалося отримати посилання на потік")
   }
 
-  const data = await response.json();
-  return data.stream_url;
+  const data = await response.json()
+  return data.stream_url
 }
 
 export async function savePlayerState(userId: string, state: any): Promise<void> {
   const response = await fetch(`${BACKEND_BASE_URL}/player/state?user_id=${userId}`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify(state),
   })
@@ -65,9 +67,9 @@ export async function loadPlayerState(userId: string): Promise<any> {
 
 export async function addToListeningHistory(userId: string, track: Track, playedDuration: number): Promise<void> {
   const response = await fetch(`${BACKEND_BASE_URL}/player/history?user_id=${userId}`, {
-    method: 'POST',
+    method: "POST",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({ track, playedDuration }),
   })
@@ -92,7 +94,10 @@ export async function getRandomTracks(): Promise<Track[]> {
     cache: "no-store",
   })
 
-  if (!response.ok) throw new Error("Failed to get random tracks");
-  const data = await response.json();
-  return Array.isArray(data) ? data.map(normalizeTrack) : [];
+  if (!response.ok) {
+    throw new Error("Failed to get random tracks")
+  }
+
+  const data = await response.json()
+  return Array.isArray(data) ? data.map(normalizeTrack) : []
 }

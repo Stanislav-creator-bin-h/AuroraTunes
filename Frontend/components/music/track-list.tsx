@@ -11,20 +11,20 @@ interface TrackListProps {
 export function TrackList({ tracks, title }: TrackListProps) {
   if (tracks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-24 h-24 rounded-full bg-white/8 backdrop-blur-xl flex items-center justify-center mb-6 shadow-lg">
-          <span className="text-5xl">🎵</span>
+      <div className="glass-panel flex min-h-[280px] flex-col items-center justify-center rounded-[28px] px-6 py-12 text-center">
+        <div className="glass-tile mb-6 flex h-24 w-24 items-center justify-center rounded-full">
+          <span className="text-5xl">♪</span>
         </div>
-        <p className="text-white/50 text-lg font-medium">Поки що нічого немає</p>
-        <p className="text-white/30 text-base mt-2">Шукайте улюблену музику</p>
+        <p className="text-lg font-medium text-white/50">Поки що тут порожньо</p>
+        <p className="mt-2 text-base text-white/30">Спробуйте знайти музику або запустити добірку</p>
       </div>
     )
   }
 
   return (
-    <div>
+    <div className="min-w-0">
       {title && (
-        <h2 className="text-2xl font-bold text-white mb-6">{title}</h2>
+        <h2 className="mb-5 text-xl font-bold text-white sm:text-2xl">{title}</h2>
       )}
       <div className="space-y-3">
         {tracks.map((track, index) => (

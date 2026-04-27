@@ -13,43 +13,49 @@ function MusicPlayerInner() {
   const [activeTab, setActiveTab] = useState("home")
   const [showFullscreen, setShowFullscreen] = useState(false)
   const [viewMode, setViewMode] = useState<"lyrics" | "minimal" | "circle">("lyrics")
-  const { backgroundUrl } = useBackground()
+  const { backgroundUrl, brightness } = useBackground()
+
+  // Brightness logic:
+  // 100% (slider value) = original image (no changes) - default
+  // 0% = dark overlay
+  // The slider controls how much dark overlay is applied
+  // At 100% brightness = no overlay, at 0% = max overlay (0.8)
+  const brightnessOverlay = Math.max(0, 0.5 - brightness / 200)
 
   return (
-    <div className="relative h-screen w-full overflow-hidden bg-black selection:bg-white/20">
-      
-      {/* 1. Dynamic Background Layer */}
-      <div 
+    <div className="relative h-dvh min-h-0 w-full overflow-hidden bg-black selection:bg-white/20">
+      {/* Background Image - clean, no filters except user-controlled overlay */}
+      <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${backgroundUrl})` }}
       />
       
-      {/* 2. Overlay - тут налаштовується загальна темрява фону */}
-      <div className="absolute inset-0 z-[1] bg-black/50" />
-      
-      {/* 3. App Container */}
-      <div className="relative z-10 h-full flex flex-col p-2 sm:p-3 gap-2 sm:gap-3">
-        
-        {/* Верхня частина: Сайдбар + Контент */}
-        <div className="flex-1 flex gap-2 sm:gap-3 overflow-hidden">
-          {/* Сайдбар тепер передає свою прозорість сам, тут ми просто даємо йому місце */}
+      {/* Dark overlay - controlled by brightness slider */}
+      {brightnessOverlay > 0 && (
+        <div
+          className="absolute inset-0 z-[1] bg-black transition-opacity duration-300"
+          style={{ opacity: brightnessOverlay }}
+        />
+      )}
+
+      {/* Main Content */}
+      <div className="relative z-10 flex h-full min-h-0 flex-col gap-2 p-2 sm:p-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:flex-row lg:gap-3">
           <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-          
-          {/* Основне вікно (плитка з контентом) */}
-          <main className="flex-1 bg-black/20 backdrop-blur-md rounded-[24px] border border-white/5 overflow-hidden">
+
+          <main className="glass-panel min-h-0 flex-1 overflow-hidden rounded-2xl">
             <MainContent activeTab={activeTab} />
           </main>
         </div>
 
-        {/* Плеєр (нижня плитка) */}
-        <footer className="h-20 sm:h-24 bg-black/30 backdrop-blur-xl rounded-[24px] border border-white/5 shadow-2xl">
+        <footer className="glass-panel overflow-hidden rounded-2xl">
           <PlayerBar onExpandClick={() => setShowFullscreen(true)} />
         </footer>
       </div>
 
-      {/* Fullscreen Player із плавним переходом */}
+      {/* Fullscreen Player */}
       {showFullscreen && (
-        <div className="fixed inset-0 z-[100] animate-in fade-in zoom-in duration-300">
+        <div className="fixed inset-0 z-[100] animate-in fade-in zoom-in-95 duration-300">
           <FullscreenPlayer
             onClose={() => setShowFullscreen(false)}
             viewMode={viewMode}

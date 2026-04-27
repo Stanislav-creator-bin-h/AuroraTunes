@@ -7,12 +7,9 @@ import { Slider } from "@/components/ui/slider"
 import { 
   Play, Pause, SkipBack, SkipForward, 
   Repeat, Shuffle, Volume2, VolumeX,
-  Heart, Download, ChevronDown, Maximize2,
-  SlidersHorizontal, Timer, Smile, X,
-  Home, Library
+  Heart, X, ChevronDown
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-
 
 interface FullscreenPlayerProps {
   onClose: () => void
@@ -26,7 +23,6 @@ function formatTime(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
-// View mode menu component
 const ViewModeMenu = memo(function ViewModeMenu({ 
   viewMode, 
   onViewModeChange,
@@ -42,65 +38,50 @@ const ViewModeMenu = memo(function ViewModeMenu({
     <div className="relative">
       <button
         onClick={onToggle}
-        className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/15 rounded-lg text-white/80 text-sm font-medium transition-all duration-200 hover:scale-105"
+        className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white/60 text-sm font-medium transition-all duration-200 hover:text-white"
       >
-        <SlidersHorizontal className="w-4 h-4" />
         <span>
-          {viewMode === "lyrics" ? "Динамічний" : viewMode === "circle" ? "Яблоко" : "Розмитие"}
+          {viewMode === "lyrics" ? "Динамічний" : viewMode === "circle" ? "Вініл" : "Мінімальний"}
         </span>
+        <ChevronDown className="w-3 h-3" />
       </button>
-
-      
       
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl overflow-hidden min-w-48 shadow-2xl">
-          <button
-            onClick={() => { onViewModeChange("lyrics"); onToggle() }}
-            className={cn(
-              "w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-all duration-200",
-              viewMode === "lyrics" ? "bg-white/20 text-white font-semibold" : "text-white/70 hover:bg-white/15 hover:text-white"
-            )}
-          >
-            {viewMode === "lyrics" && <span className="w-2 h-2 rounded-full bg-blue-400" />}
-            Динамічний
-          </button>
-          <button
-            onClick={() => { onViewModeChange("circle"); onToggle() }}
-            className={cn(
-              "w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-all duration-200",
-              viewMode === "circle" ? "bg-white/20 text-white font-semibold" : "text-white/70 hover:bg-white/15 hover:text-white"
-            )}
-          >
-            {viewMode === "circle" && <span className="w-2 h-2 rounded-full bg-blue-400" />}
-            Яблоко
-          </button>
-          <button
-            onClick={() => { onViewModeChange("minimal"); onToggle() }}
-            className={cn(
-              "w-full px-4 py-2.5 text-left text-sm flex items-center gap-2 transition-all duration-200",
-              viewMode === "minimal" ? "bg-white/20 text-white font-semibold" : "text-white/70 hover:bg-white/15 hover:text-white"
-            )}
-          >
-            {viewMode === "minimal" && <span className="w-2 h-2 rounded-full bg-blue-400" />}
-            Розмитие
-          </button>
+        <div className="absolute top-full right-0 mt-2 bg-black/90 backdrop-blur-xl border border-white/10 rounded-lg overflow-hidden min-w-36 shadow-xl">
+          {[
+            { id: "lyrics" as const, label: "Динамічний" },
+            { id: "circle" as const, label: "Вініл" },
+            { id: "minimal" as const, label: "Мінімальний" },
+          ].map((mode) => (
+            <button
+              key={mode.id}
+              onClick={() => { onViewModeChange(mode.id); onToggle() }}
+              className={cn(
+                "w-full px-4 py-2.5 text-left text-sm transition-all duration-200",
+                viewMode === mode.id 
+                  ? "bg-white/10 text-white" 
+                  : "text-white/50 hover:bg-white/5 hover:text-white"
+              )}
+            >
+              {mode.label}
+            </button>
+          ))}
         </div>
       )}
     </div>
   )
 })
 
-
-
-
 export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: FullscreenPlayerProps) {
   const { currentTrack, isPlaying, togglePlay, progress, volume, setVolume, currentTime, duration, seek, nextTrack, prevTrack } = usePlayer()
-  const { backgroundUrl } = useBackground()
+  const { backgroundUrl, brightness } = useBackground()
   const [isLiked, setIsLiked] = useState(false)
   const [isRepeat, setIsRepeat] = useState(false)
   const [isShuffle, setIsShuffle] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
-  const [playbackSpeed, setPlaybackSpeed] = useState(1)
+
+  // Brightness logic: 0 = dark (0.5), 50 = default (0.25), 100 = original (0)
+  const brightnessOverlay = Math.max(0, 0.5 - brightness / 200)
 
   const handleSeek = useCallback((value: number[]) => {
     if (duration) seek((value[0] / 100) * duration)
@@ -110,80 +91,59 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
     setVolume(value[0] / 100)
   }, [setVolume])
 
-  const cycleSpeed = useCallback(() => {
-    const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2]
-    const currentIndex = speeds.indexOf(playbackSpeed)
-    const nextIndex = (currentIndex + 1) % speeds.length
-    setPlaybackSpeed(speeds[nextIndex])
-  }, [playbackSpeed])
-
   if (!currentTrack) return null
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 bg-black">
       {/* Dynamic Background */}
       <div 
-        className="absolute inset-0 bg-cover bg-center transition-all duration-700"
+        className="absolute inset-0 z-0 bg-cover bg-center"
         style={{ backgroundImage: `url(${backgroundUrl})` }}
       />
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      
+      {/* Dark overlay */}
+      <div className="absolute inset-0 z-10 bg-black/50" />
+      
+      {/* Purple accent */}
+      <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_0%,rgba(100,80,200,0.15),transparent_50%)]" />
+      
+      {/* Edge vignette */}
+      <div className="absolute inset-0 z-10 bg-[radial-gradient(ellipse_70%_50%_at_50%_50%,transparent_30%,rgba(0,0,0,0.4)_100%)]" />
 
-      {/* Top Navigation Bar - Dotify style */}
-      <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 bg-white/8 backdrop-blur-2xl border-b border-white/15 z-20 shadow-lg">
-        {/* Left - Navigation */}
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={onClose}
-            className="p-2 text-white/60 hover:text-white hover:bg-white/15 rounded-lg transition-all duration-200 hover:scale-110"
-          >
-            <Home className="w-5 h-5" />
-          </button>
-          <button aria-label="Бібліотека" className="p-2 text-white/60 hover:text-white hover:bg-white/15 rounded-lg transition-all duration-200 hover:scale-110">
-            <Library className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Center - Close indicator */}
+      {/* Top Bar */}
+      <div className="relative z-20 top-0 left-0 right-0 h-14 flex items-center justify-between px-4 sm:px-5">
         <button 
           onClick={onClose}
-          aria-label="Закрити"
-          className="absolute left-1/2 -translate-x-1/2 w-12 h-1 bg-white/30 rounded-full hover:bg-white/50 transition-colors"
-        />
+          className="p-2 text-white/50 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
+        >
+          <X className="w-5 h-5" />
+        </button>
 
-        {/* Right - Settings */}
-        <div className="flex items-center gap-2">
-          <ViewModeMenu 
-            viewMode={viewMode}
-            onViewModeChange={onViewModeChange}
-            isOpen={showMenu}
-            onToggle={() => setShowMenu(!showMenu)}
-          />
-          <button aria-label="Повноекранний режим" className="p-2 text-white/60 hover:text-white hover:bg-white/15 rounded-lg transition-all duration-200 hover:scale-110">
-            <Maximize2 className="w-5 h-5" />
-          </button>
-        </div>
+        <ViewModeMenu 
+          viewMode={viewMode}
+          onViewModeChange={onViewModeChange}
+          isOpen={showMenu}
+          onToggle={() => setShowMenu(!showMenu)}
+        />
       </div>
 
       {/* Lyrics View */}
       {viewMode === "lyrics" && (
-        <div className="h-full flex items-center px-8 md:px-16 pt-20 pb-24">
-          <div className="flex items-start gap-12 max-w-6xl w-full mx-auto">
-            {/* Album Art with shadow */}
-            <div className="w-72 md:w-80 shrink-0">
+        <div className="relative z-20 h-full flex items-center px-6 md:px-12 pt-16 pb-20">
+          <div className="flex flex-col lg:flex-row items-center lg:items-start gap-8 lg:gap-12 max-w-4xl w-full mx-auto">
+            <div className="w-56 md:w-64 lg:w-72 shrink-0">
               <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50 rounded-2xl" />
                 <img
                   src={currentTrack.thumbnail}
                   alt={currentTrack.title}
                   className="w-full aspect-square object-cover rounded-2xl shadow-2xl"
                 />
               </div>
-              <h2 className="text-2xl text-white mt-6 text-center">{currentTrack.title}</h2>
-              <p className="text-lg text-white/50 text-center">{currentTrack.channel}</p>
+              <h2 className="text-xl font-semibold text-white mt-5 text-center lg:text-left">{currentTrack.title}</h2>
+              <p className="text-sm text-white/40 text-center lg:text-left">{currentTrack.channel}</p>
               
-              {/* Progress under album */}
-              <div className="mt-6 px-2">
-                <div className="flex items-center justify-between text-sm text-white/50 mb-2">
+              <div className="mt-5">
+                <div className="flex items-center justify-between text-xs text-white/40 mb-2 tabular-nums">
                   <span>{formatTime(currentTime)}</span>
                   <span>{currentTrack.duration}</span>
                 </div>
@@ -197,29 +157,26 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
               </div>
             </div>
             
-            {/* Lyrics */}
-            <div className="flex-1 pt-4">
-              <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-4 scrollbar-thin">
-                <p className="text-2xl md:text-3xl leading-relaxed text-white/50 text-center">
-                  Текст пісні буде завантажений тут
-                </p>
-              </div>
+            <div className="flex-1 flex items-center justify-center lg:pt-6">
+              <p className="text-lg text-white/25 text-center leading-relaxed max-w-md">
+                Текст пісні буде завантажений тут...
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Circle/Apple View */}
+      {/* Circle/Vinyl View */}
       {viewMode === "circle" && (
-        <div className="h-full flex items-center justify-center px-8 pt-20 pb-24">
-          <div className="flex items-center gap-16 md:gap-24 max-w-5xl w-full">
-            {/* Circular Album Art */}
-            <div className="w-64 md:w-80 shrink-0">
+        <div className="relative z-20 h-full flex items-center justify-center px-6 pt-16 pb-20">
+          <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-16 max-w-3xl w-full">
+            <div className="w-48 md:w-60 shrink-0">
               <div 
                 className={cn(
-                  "w-full aspect-square rounded-full overflow-hidden shadow-2xl border-4 border-white/10",
-                  isPlaying && "animate-[spin_20s_linear_infinite]"
+                  "w-full aspect-square rounded-full overflow-hidden shadow-2xl ring-2 ring-white/10",
+                  isPlaying && "animate-spin-slow"
                 )}
+                style={{ animationDuration: "8s" }}
               >
                 <img
                   src={currentTrack.thumbnail}
@@ -229,20 +186,14 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
               </div>
             </div>
             
-            {/* Controls Section */}
-            <div className="flex-1 max-w-md">
-              {/* Track Info */}
-              <div className="mb-6">
-                <h2 className="text-3xl text-white flex items-center gap-2">
-                  {currentTrack.title}
-                  <span className="text-orange-500">{"🔥"}</span>
-                </h2>
-                <p className="text-lg text-white/50">{currentTrack.channel}</p>
+            <div className="flex-1 max-w-sm w-full">
+              <div className="mb-5 text-center lg:text-left">
+                <h2 className="text-2xl font-semibold text-white">{currentTrack.title}</h2>
+                <p className="text-sm text-white/40">{currentTrack.channel}</p>
               </div>
               
-              {/* Progress */}
-              <div className="mb-8">
-                <div className="flex items-center justify-between text-sm text-white/50 mb-2">
+              <div className="mb-6">
+                <div className="flex items-center justify-between text-xs text-white/40 mb-2 tabular-nums">
                   <span>{formatTime(currentTime)}</span>
                   <span>{currentTrack.duration}</span>
                 </div>
@@ -255,108 +206,62 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
                 />
               </div>
 
-              {/* Main Controls */}
-              <div className="flex items-center justify-center gap-3 mb-8">
-                <button className="p-2.5 text-white/50 hover:text-white transition-colors">
-                  <Download className="w-5 h-5" />
-                </button>
+              <div className="flex items-center justify-center gap-3 mb-6">
                 <button 
                   onClick={() => setIsRepeat(!isRepeat)}
-                  className={cn(
-                    "p-2.5 transition-colors",
-                    isRepeat ? "text-green-500" : "text-white/50 hover:text-white"
-                  )}
+                  className={cn("p-2 transition-colors", isRepeat ? "text-white" : "text-white/40 hover:text-white")}
                 >
-                  <Repeat className="w-5 h-5" />
+                  <Repeat className="w-4 h-4" />
                 </button>
-                <button 
-                  onClick={prevTrack}
-                  className="p-2.5 text-white/50 hover:text-white transition-colors"
-                >
-                  <SkipBack className="w-6 h-6" />
+                <button onClick={prevTrack} className="p-2 text-white/40 hover:text-white transition-colors">
+                  <SkipBack className="w-5 h-5" />
                 </button>
                 <button
                   onClick={togglePlay}
-                  className="w-14 h-14 rounded-full bg-white text-black hover:bg-white/90 flex items-center justify-center transition-colors"
+                  className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center transition-all duration-200 hover:scale-105"
                 >
-                  {isPlaying ? (
-                    <Pause className="w-7 h-7" fill="currentColor" />
-                  ) : (
-                    <Play className="w-7 h-7 ml-1" fill="currentColor" />
-                  )}
+                  {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
                 </button>
-                <button 
-                  onClick={nextTrack}
-                  className="p-2.5 text-white/50 hover:text-white transition-colors"
-                >
-                  <SkipForward className="w-6 h-6" />
+                <button onClick={nextTrack} className="p-2 text-white/40 hover:text-white transition-colors">
+                  <SkipForward className="w-5 h-5" />
                 </button>
                 <button 
                   onClick={() => setIsShuffle(!isShuffle)}
-                  className={cn(
-                    "p-2.5 transition-colors",
-                    isShuffle ? "text-green-500" : "text-white/50 hover:text-white"
-                  )}
+                  className={cn("p-2 transition-colors", isShuffle ? "text-white" : "text-white/40 hover:text-white")}
                 >
-                  <Shuffle className="w-5 h-5" />
-                </button>
-                <button className="p-2.5 text-white/50 hover:text-white transition-colors">
-                  <Timer className="w-5 h-5" />
+                  <Shuffle className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Bottom Controls */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <button className="p-2 text-white/50 hover:text-white transition-colors">
-                    <Smile className="w-5 h-5" />
-                  </button>
-                  <button 
-                    onClick={() => setVolume(volume === 0 ? 0.5 : 0)}
-                    className="p-2 text-white/50 hover:text-white transition-colors"
-                  >
-                    {volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
-                  </button>
-                  <Slider
-                    value={[volume * 100]}
-                    max={100}
-                    onValueChange={handleVolumeChange}
-                    className="w-24 cursor-pointer"
-                  />
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={cycleSpeed}
-                    className="px-2 py-1 text-white/50 hover:text-white text-sm transition-colors"
-                  >
-                    {playbackSpeed}x
-                  </button>
-                  <button className="p-2 text-white/50 hover:text-white transition-colors">
-                    <SlidersHorizontal className="w-5 h-5" />
-                  </button>
-                  <button className="p-2 text-white/50 hover:text-white transition-colors">
-                    <Maximize2 className="w-5 h-5" />
-                  </button>
-                </div>
+              <div className="flex items-center justify-center gap-3">
+                <button 
+                  onClick={() => setVolume(volume === 0 ? 0.5 : 0)}
+                  className="p-2 text-white/40 hover:text-white transition-colors"
+                >
+                  {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                </button>
+                <Slider
+                  value={[volume * 100]}
+                  max={100}
+                  onValueChange={handleVolumeChange}
+                  className="w-24 cursor-pointer"
+                />
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Minimal/Blur View */}
+      {/* Minimal View */}
       {viewMode === "minimal" && (
-        <div className="h-full flex flex-col items-center justify-center px-8 pt-20 pb-24">
-          {/* Extra blur from album */}
+        <div className="relative z-20 h-full flex flex-col items-center justify-center px-6 pt-16 pb-20">
           <div 
-            className="absolute inset-0 bg-cover bg-center opacity-40 blur-3xl scale-110"
+            className="absolute inset-0 z-10 bg-cover bg-center opacity-30 blur-[60px]"
             style={{ backgroundImage: `url(${currentTrack.thumbnail})` }}
           />
           
-          <div className="relative z-10 text-center max-w-lg w-full">
-            {/* Album Art */}
-            <div className="w-56 md:w-64 mx-auto mb-8">
+          <div className="relative z-30 text-center max-w-md w-full">
+            <div className="w-44 md:w-52 mx-auto mb-6">
               <img
                 src={currentTrack.thumbnail}
                 alt={currentTrack.title}
@@ -364,26 +269,18 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
               />
             </div>
             
-            {/* Track Info */}
-            <h2 className="text-2xl md:text-3xl text-white mb-1 flex items-center justify-center gap-2">
+            <h2 className="text-xl md:text-2xl font-semibold text-white mb-1 flex items-center justify-center gap-2">
               {currentTrack.title}
-              <button 
-                onClick={() => setIsLiked(!isLiked)}
-                className="transition-colors"
-              >
+              <button onClick={() => setIsLiked(!isLiked)}>
                 <Heart 
-                  className={cn(
-                    "w-5 h-5",
-                    isLiked ? "text-orange-500 fill-orange-500" : "text-white/50 hover:text-white"
-                  )}
+                  className={cn("w-5 h-5 transition-colors", isLiked ? "text-white fill-white" : "text-white/40 hover:text-white")}
                 />
               </button>
             </h2>
-            <p className="text-lg text-white/50 mb-8">{currentTrack.channel}</p>
+            <p className="text-sm text-white/40 mb-6">{currentTrack.channel}</p>
             
-            {/* Progress */}
             <div className="mb-6 w-full">
-              <div className="flex items-center justify-between text-sm text-white/50 mb-2">
+              <div className="flex items-center justify-between text-xs text-white/40 mb-2 tabular-nums">
                 <span>{formatTime(currentTime)}</span>
                 <span>{currentTrack.duration}</span>
               </div>
@@ -396,76 +293,55 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
               />
             </div>
 
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-4 mb-8">
+            <div className="flex items-center justify-center gap-3 mb-6">
               <button 
                 onClick={() => setIsRepeat(!isRepeat)}
-                className={cn(
-                  "p-2 transition-colors",
-                  isRepeat ? "text-green-500" : "text-white/50 hover:text-white"
-                )}
+                className={cn("p-2 transition-colors", isRepeat ? "text-white" : "text-white/40 hover:text-white")}
               >
-                <Repeat className="w-5 h-5" />
+                <Repeat className="w-4 h-4" />
               </button>
-              <button 
-                onClick={prevTrack}
-                className="p-2 text-white/50 hover:text-white transition-colors"
-              >
-                <SkipBack className="w-6 h-6" />
+              <button onClick={prevTrack} className="p-2 text-white/40 hover:text-white transition-colors">
+                <SkipBack className="w-5 h-5" />
               </button>
               <button
                 onClick={togglePlay}
-                className="w-14 h-14 rounded-full bg-white text-black hover:bg-white/90 flex items-center justify-center transition-colors"
+                className="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center transition-all duration-200 hover:scale-105"
               >
-                {isPlaying ? (
-                  <Pause className="w-7 h-7" fill="currentColor" />
-                ) : (
-                  <Play className="w-7 h-7 ml-1" fill="currentColor" />
-                )}
+                {isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
               </button>
-              <button 
-                onClick={nextTrack}
-                className="p-2 text-white/50 hover:text-white transition-colors"
-              >
-                <SkipForward className="w-6 h-6" />
+              <button onClick={nextTrack} className="p-2 text-white/40 hover:text-white transition-colors">
+                <SkipForward className="w-5 h-5" />
               </button>
               <button 
                 onClick={() => setIsShuffle(!isShuffle)}
-                className={cn(
-                  "p-2 transition-colors",
-                  isShuffle ? "text-green-500" : "text-white/50 hover:text-white"
-                )}
+                className={cn("p-2 transition-colors", isShuffle ? "text-white" : "text-white/40 hover:text-white")}
               >
-                <Shuffle className="w-5 h-5" />
+                <Shuffle className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Volume */}
             <div className="flex items-center justify-center gap-3">
               <button 
                 onClick={() => setVolume(volume === 0 ? 0.5 : 0)}
-                className="p-2 text-white/50 hover:text-white transition-colors"
+                className="p-2 text-white/40 hover:text-white transition-colors"
               >
-                {volume === 0 ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
+                {volume === 0 ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
               </button>
               <Slider
                 value={[volume * 100]}
                 max={100}
                 onValueChange={handleVolumeChange}
-                className="w-32 cursor-pointer"
+                className="w-28 cursor-pointer"
               />
-              <span className="text-white/40 text-sm w-8">{Math.round(volume * 100)}</span>
+              <span className="text-white/30 text-xs tabular-nums w-8">{Math.round(volume * 100)}%</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Click outside to close menu */}
+      {/* Close menu on outside click */}
       {showMenu && (
-        <div 
-          className="fixed inset-0 z-10" 
-          onClick={() => setShowMenu(false)}
-        />
+        <div className="fixed inset-0 z-30 bg-black/50" onClick={() => setShowMenu(false)} />
       )}
     </div>
   )
