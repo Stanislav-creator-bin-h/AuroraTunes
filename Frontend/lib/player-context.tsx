@@ -224,6 +224,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (error instanceof Error && error.name !== "AbortError") {
         console.error("Playback error:", error)
+        import("sonner").then((mod) => mod.toast.error("Помилка відтворення. Трек недоступний або формат не підтримується браузером."))
       }
     } finally {
       playPromiseRef.current = null
@@ -313,6 +314,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Failed to play track:", error)
       setIsPlaying(false)
+      import("sonner").then((mod) => mod.toast.error("Не вдалося завантажити аудіопотік. Можливо, відео заблоковано."))
     } finally {
       playPromiseRef.current = null
     }

@@ -57,23 +57,25 @@ class YouTubeProvider(BaseProvider):
 
             tracks = []
             for item in details.get("items", []):
+                video_id = item.get("id")
+                if not video_id:
+                    continue
+
                 snippet = item.get("snippet", {})
                 content = item.get("contentDetails", {})
-                thumbs = snippet.get("thumbnails", {})
-                thumbnail = (
-                    thumbs.get("maxres", {}).get("url")
-                    or thumbs.get("high", {}).get("url")
-                    or thumbs.get("medium", {}).get("url")
-                    or thumbs.get("default", {}).get("url")
-                    or "https://via.placeholder.com/500x500/0a0a0f/7c3aed?text=Aurora"
-                )
+                duration = parse_duration(content.get("duration"))
+                if duration == "0:00":
+                    continue
+
+                # Prefer a broadly compatible YouTube thumbnail host/size for Electron and desktop builds.
+                thumbnail = f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg"
 
                 tracks.append(
                     {
-                        "id": item["id"],
+                        "id": video_id,
                         "title": snippet.get("title"),
                         "channel": snippet.get("channelTitle"),
-                        "duration": parse_duration(content.get("duration")),
+                        "duration": duration,
                         "thumbnail": thumbnail,
                         "source": self.source_name,
                     }
@@ -92,7 +94,7 @@ class YouTubeProvider(BaseProvider):
             return None
 
         ydl_opts = {
-            "format": "bestaudio/best",
+            "format": "m4a/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,

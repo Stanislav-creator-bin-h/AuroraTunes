@@ -32,6 +32,9 @@ class SoundCloudProvider(BaseProvider):
                     artwork = artwork.replace("large.jpg", "t500x500.jpg")
 
                 duration_ms = track.get("duration", 0)
+                if not duration_ms or duration_ms < 1000:
+                    continue
+
                 duration = f"{duration_ms // 60000}:{(duration_ms % 60000) // 1000:02d}"
 
                 tracks.append(

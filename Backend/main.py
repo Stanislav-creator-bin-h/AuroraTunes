@@ -1,5 +1,6 @@
 import json
 import random
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -8,12 +9,17 @@ from flask_cors import CORS
 
 from providers import SoundCloudProvider, YT_DLP_AVAILABLE, YouTubeProvider
 
-load_dotenv()
+if getattr(sys, 'frozen', False):
+    base_dir = Path.cwd()
+else:
+    base_dir = Path(__file__).resolve().parent
+
+load_dotenv(dotenv_path=base_dir / ".env")
 
 app = Flask(__name__)
 CORS(app)
 
-DATA_DIR = Path(__file__).resolve().parent / "data"
+DATA_DIR = base_dir / "data"
 PLAYER_DATA_PATH = DATA_DIR / "player_data.json"
 
 youtube_provider = YouTubeProvider()

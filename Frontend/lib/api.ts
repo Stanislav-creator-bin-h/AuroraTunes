@@ -9,7 +9,7 @@ function normalizeTrack(entry: any): Track {
     duration: entry.duration ?? "0:00",
     thumbnail: entry.thumbnail ?? "https://via.placeholder.com/500",
     channel: entry.channel ?? "Unknown artist",
-    source: entry.source ?? "soundcloud",
+    source: entry.source ?? "youtube",
   }
 }
 
@@ -20,7 +20,8 @@ export async function searchTracks(query: string, source: string = "all"): Promi
   })
 
   if (!response.ok) {
-    throw new Error("Search failed")
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error || "Search failed")
   }
 
   const data = await response.json()
@@ -95,7 +96,8 @@ export async function getRandomTracks(): Promise<Track[]> {
   })
 
   if (!response.ok) {
-    throw new Error("Failed to get random tracks")
+    const body = await response.json().catch(() => null)
+    throw new Error(body?.error || "Failed to get random tracks")
   }
 
   const data = await response.json()

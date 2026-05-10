@@ -21,6 +21,14 @@ function getHighResThumbnail(url?: string): string {
   return url
 }
 
+function getTrackThumbnail(track: Track | null): string {
+  if (!track) return "https://via.placeholder.com/500x500/111827/e5e7eb?text=Music"
+  if (track.source === "youtube" && track.id) {
+    return `https://img.youtube.com/vi/${track.id}/hqdefault.jpg`
+  }
+  return getHighResThumbnail(track.thumbnail)
+}
+
 function formatTime(s: number) {
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`
 }
@@ -30,7 +38,7 @@ const PAGE = "h-full min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-white/
 export function MainContent({ activeTab }: MainContentProps) {
   const {
     currentTrack, isPlaying, progress, duration, volume, currentTime,
-    listeningHistory, togglePlay, nextTrack, prevTrack, setVolume
+    listeningHistory, togglePlay, nextTrack, prevTrack, setVolume, seek
   } = usePlayer()
 
   const [searchQuery, setSearchQuery] = useState("")
@@ -107,7 +115,7 @@ export function MainContent({ activeTab }: MainContentProps) {
   )
 
   if (activeTab === "home") {
-    const img = getHighResThumbnail(currentTrack?.thumbnail)
+    const img = getTrackThumbnail(currentTrack)
 
     return (
       <div className="h-full min-h-0 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
@@ -132,7 +140,16 @@ export function MainContent({ activeTab }: MainContentProps) {
                   className="glass-tile relative h-56 w-56 shrink-0 overflow-hidden rounded-[32px] border-white/14 shadow-2xl sm:h-64 sm:w-64 lg:h-72 lg:w-72"
                 >
                   {currentTrack
-                    ? <img src={img} alt={currentTrack.title} className="h-full w-full object-cover" />
+                    ? (
+                      <img
+                        src={img}
+                        alt={currentTrack.title}
+                        className="h-full w-full object-cover"
+                        onError={(event) => {
+                          event.currentTarget.src = "https://via.placeholder.com/500x500/111827/e5e7eb?text=Music"
+                        }}
+                      />
+                    )
                     : <div className="flex h-full w-full items-center justify-center text-5xl opacity-30">♪</div>}
                   <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.18)_65%,rgba(0,0,0,0.42)_100%)]" />
                   {isPlaying && currentTrack && (
@@ -155,12 +172,16 @@ export function MainContent({ activeTab }: MainContentProps) {
               </div>
 
               <div className="mt-5 w-full rounded-[24px] border border-white/8 bg-black/24 p-4">
-                <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.12]">
-                  <div
-                    className="h-full rounded-full bg-white transition-all duration-300"
-                    style={{ width: `${(progress || 0) * 100}%` }}
-                  />
-                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration || 0}
+                  step={0.1}
+                  value={Math.min(currentTime, duration || 0)}
+                  onChange={(event) => seek(Number(event.target.value))}
+                  disabled={!duration}
+                  className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/[0.12] accent-white disabled:cursor-not-allowed disabled:opacity-40"
+                />
                 <div className="mt-2 flex justify-between text-xs text-white/40">
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>

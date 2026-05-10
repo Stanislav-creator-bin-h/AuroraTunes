@@ -13,12 +13,21 @@ function resolveFrontendUrl() {
 }
 
 function resolvePythonCommand() {
-  const embeddedPython = path.join(__dirname, "..", "Backend", "venv", "Scripts", "python.exe")
-  if (fs.existsSync(embeddedPython)) {
-    return { command: embeddedPython, args: [] }
+  // Перевіряємо, чи є скомпільований exe (наш PyInstaller)
+  const exePath = path.join(__dirname, "bin", "main.exe")
+  if (fs.existsSync(exePath)) {
+    return { command: exePath, args: [] }
   }
 
-  return { command: process.env.PYTHON_EXECUTABLE || "python", args: [] }
+  // Запасний варіант: використовуємо venv Python під час розробки
+  const embeddedPython = path.join(__dirname, "..", "Backend", "venv", "Scripts", "python.exe")
+  const scriptPath = path.join(__dirname, "..", "Backend", "main.py")
+
+  if (fs.existsSync(embeddedPython)) {
+    return { command: embeddedPython, args: [scriptPath] }
+  }
+
+  return { command: process.env.PYTHON_EXECUTABLE || "python", args: [scriptPath] }
 }
 
 function createWindow() {
@@ -46,11 +55,11 @@ function createWindow() {
 }
 
 function startPythonBackend() {
-  const scriptPath = path.join(__dirname, "..", "Backend", "main.py")
   const python = resolvePythonCommand()
+  const backendDir = path.join(__dirname, "..", "Backend")
 
-  pythonProcess = spawn(python.command, [...python.args, scriptPath], {
-    cwd: path.dirname(scriptPath),
+  pythonProcess = spawn(python.command, python.args, {
+    cwd: backendDir, // ЗАВЖДИ запускаємо з папки Backend, щоб python бачив файл Backend/.env
     env: process.env,
   })
 

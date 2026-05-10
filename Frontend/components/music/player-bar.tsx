@@ -93,6 +93,9 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
                     src={currentTrack.thumbnail}
                     alt={currentTrack.title}
                     className="w-full h-full object-cover"
+                    onError={(event) => {
+                      event.currentTarget.src = "https://via.placeholder.com/150x150/111827/e5e7eb?text=Music"
+                    }}
                   />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                     <motion.div

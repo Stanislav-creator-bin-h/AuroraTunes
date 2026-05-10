@@ -29,6 +29,14 @@ function getHighResThumbnail(url: string | undefined): string {
   return url
 }
 
+function getTrackThumbnail(track: Track): string {
+  if (track.source === "youtube" && track.id) {
+    return `https://img.youtube.com/vi/${track.id}/mqdefault.jpg`
+  }
+
+  return getHighResThumbnail(track.thumbnail)
+}
+
 export function TrackCard({ track, index }: TrackCardProps) {
   const { currentTrack, isPlaying, playTrack, togglePlay } = usePlayer()
   const isActive = currentTrack?.id === track.id
@@ -41,7 +49,7 @@ export function TrackCard({ track, index }: TrackCardProps) {
     }
   }
 
-  const highResImage = getHighResThumbnail(track.thumbnail)
+  const highResImage = getTrackThumbnail(track)
 
   return (
     <motion.div
@@ -60,6 +68,9 @@ export function TrackCard({ track, index }: TrackCardProps) {
           src={highResImage}
           alt={track.title}
           className="h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.src = "https://via.placeholder.com/150x150/111827/e5e7eb?text=Music"
+          }}
         />
         <motion.div
           initial={{ opacity: 0 }}
