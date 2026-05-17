@@ -1,15 +1,19 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
-
-export interface User {
-  id: string
-  username: string
-  email: string
-  avatar: string | null
-  createdAt: string
-  customBackgrounds: string[]
-}
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import {
+  clearAuthToken,
+  createBackground,
+  deleteBackground,
+  getBackgrounds,
+  getCurrentUser,
+  loginUser,
+  logoutUser,
+  registerUser,
+  setAuthToken,
+  updateCurrentUser,
+} from "./api"
+import type { CustomBackground, User } from "./types"
 
 interface AuthContextType {
   user: User | null
@@ -24,105 +28,128 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-const STORAGE_KEY = "aurora_user"
-const USERS_KEY = "aurora_users"
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
+  const [backgrounds, setBackgrounds] = useState<CustomBackground[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored))
-      } catch {
-        localStorage.removeItem(STORAGE_KEY)
-      }
-    }
-    setIsLoading(false)
-  }, [])
-
-  const saveUser = (userData: User) => {
-    setUser(userData)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(userData))
-    
-    // Update in users list
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || "[]")
-    const idx = users.findIndex((u: User) => u.id === userData.id)
-    if (idx >= 0) {
-      users[idx] = userData
-    }
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
+  const applyUserBackgrounds = (nextUser: User, nextBackgrounds: CustomBackground[]) => {
+    setUser({
+      ...nextUser,
+      customBackgrounds: nextBackgrounds.map((background) => background.imageUrl),
+    })
+    setBackgrounds(nextBackgrounds)
   }
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || "[]")
-    const found = users.find((u: User & { password: string }) => 
-      u.email === email && u.password === password
-    )
-    
-    if (found) {
-      const { password: _, ...userData } = found
-      saveUser(userData)
-      return true
+  const refreshUser = async (fallbackUser?: User) => {
+    const nextUser = fallbackUser ?? await getCurrentUser()
+    const nextBackgrounds = await getBackgrounds().catch(() => [])
+    applyUserBackgrounds(nextUser, nextBackgrounds)
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function bootstrap() {
+      try {
+        const currentUser = await getCurrentUser()
+        if (!cancelled) {
+          await refreshUser(currentUser)
+        }
+      } catch {
+        clearAuthToken()
+        if (!cancelled) {
+          setUser(null)
+          setBackgrounds([])
+        }
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
     }
-    return false
+
+    bootstrap()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const response = await loginUser(email, password)
+      setAuthToken(response.token)
+      await refreshUser(response.user)
+      return true
+    } catch {
+      return false
+    }
   }
 
   const register = async (username: string, email: string, password: string): Promise<boolean> => {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || "[]")
-    
-    if (users.some((u: User) => u.email === email)) {
+    try {
+      const response = await registerUser(username, email, password)
+      setAuthToken(response.token)
+      await refreshUser(response.user)
+      return true
+    } catch {
       return false
     }
-
-    const newUser: User & { password: string } = {
-      id: crypto.randomUUID(),
-      username,
-      email,
-      password,
-      avatar: null,
-      createdAt: new Date().toISOString(),
-      customBackgrounds: []
-    }
-
-    users.push(newUser)
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-
-    const { password: _, ...userData } = newUser
-    saveUser(userData)
-    return true
   }
 
   const logout = () => {
+    logoutUser()
+    clearAuthToken()
     setUser(null)
-    localStorage.removeItem(STORAGE_KEY)
+    setBackgrounds([])
   }
 
-  const updateAvatar = (avatarUrl: string) => {
-    if (user) {
-      saveUser({ ...user, avatar: avatarUrl })
+  const updateAvatar = async (avatarUrl: string) => {
+    if (!user) return
+    const previous = user
+    setUser({ ...user, avatar: avatarUrl })
+
+    try {
+      const updated = await updateCurrentUser({ avatarUrl })
+      setUser({ ...updated, customBackgrounds: previous.customBackgrounds })
+    } catch {
+      setUser(previous)
     }
   }
 
-  const addCustomBackground = (imageUrl: string) => {
-    if (user) {
-      const updated = {
-        ...user,
-        customBackgrounds: [...user.customBackgrounds, imageUrl]
-      }
-      saveUser(updated)
+  const addCustomBackground = async (imageUrl: string) => {
+    if (!user) return
+
+    const optimisticBackground: CustomBackground = {
+      id: `local-${crypto.randomUUID()}`,
+      userId: user.id,
+      imageUrl,
+      createdAt: new Date().toISOString(),
+    }
+    const previousBackgrounds = backgrounds
+    applyUserBackgrounds(user, [optimisticBackground, ...backgrounds])
+
+    try {
+      const saved = await createBackground(imageUrl)
+      applyUserBackgrounds(user, [saved, ...previousBackgrounds])
+    } catch {
+      applyUserBackgrounds(user, previousBackgrounds)
     }
   }
 
-  const removeCustomBackground = (imageUrl: string) => {
-    if (user) {
-      const updated = {
-        ...user,
-        customBackgrounds: user.customBackgrounds.filter(bg => bg !== imageUrl)
-      }
-      saveUser(updated)
+  const removeCustomBackground = async (imageUrl: string) => {
+    if (!user) return
+
+    const target = backgrounds.find((background) => background.imageUrl === imageUrl)
+    const previousBackgrounds = backgrounds
+    const nextBackgrounds = backgrounds.filter((background) => background.imageUrl !== imageUrl)
+    applyUserBackgrounds(user, nextBackgrounds)
+
+    if (!target || target.id.startsWith("local-")) return
+
+    try {
+      await deleteBackground(target.id)
+    } catch {
+      applyUserBackgrounds(user, previousBackgrounds)
     }
   }
 
@@ -136,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         updateAvatar,
         addCustomBackground,
-        removeCustomBackground
+        removeCustomBackground,
       }}
     >
       {children}

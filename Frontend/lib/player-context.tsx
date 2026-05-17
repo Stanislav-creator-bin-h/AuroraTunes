@@ -7,6 +7,7 @@ import {
   addToListeningHistory,
   loadPlayerState as loadPlayerStateApi,
   getListeningHistory,
+  clearListeningHistory,
 } from "./api"
 import { useAuth } from "./auth-context"
 import type { Track } from "./types"
@@ -234,7 +235,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const clearHistory = useCallback(() => {
     setListeningHistory([])
     debouncedSave({ listeningHistory: [] })
-  }, [debouncedSave])
+    if (user) {
+      clearListeningHistory().catch((error) => {
+        console.error("Failed to clear history on backend:", error)
+      })
+    }
+  }, [debouncedSave, user])
 
   const handleTimeUpdate = useCallback(() => {
     if (!audioRef.current) return
