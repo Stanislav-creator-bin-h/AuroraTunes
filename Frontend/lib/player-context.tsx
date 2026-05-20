@@ -7,6 +7,7 @@ import {
   addToListeningHistory,
   loadPlayerState as loadPlayerStateApi,
   getListeningHistory,
+  clearListeningHistory,
 } from "./api"
 import { useAuth } from "./auth-context"
 import type { Track } from "./types"
@@ -224,6 +225,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       if (error instanceof Error && error.name !== "AbortError") {
         console.error("Playback error:", error)
+        import("sonner").then((mod) => mod.toast.error("Помилка відтворення. Трек недоступний або формат не підтримується браузером."))
       }
     } finally {
       playPromiseRef.current = null
@@ -233,7 +235,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const clearHistory = useCallback(() => {
     setListeningHistory([])
     debouncedSave({ listeningHistory: [] })
-  }, [debouncedSave])
+    if (user) {
+      clearListeningHistory().catch((error) => {
+        console.error("Failed to clear history on backend:", error)
+      })
+    }
+  }, [debouncedSave, user])
 
   const handleTimeUpdate = useCallback(() => {
     if (!audioRef.current) return
@@ -313,6 +320,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Failed to play track:", error)
       setIsPlaying(false)
+      import("sonner").then((mod) => mod.toast.error("Не вдалося завантажити аудіопотік. Можливо, відео заблоковано."))
     } finally {
       playPromiseRef.current = null
     }

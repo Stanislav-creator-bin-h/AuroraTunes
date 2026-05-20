@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { AnimatePresence, motion } from "framer-motion"
 import { Sidebar } from "./sidebar"
 import { MainContent } from "./main-content"
 import { PlayerBar } from "./player-bar"
@@ -48,9 +49,20 @@ function MusicPlayerInner() {
           </main>
         </div>
 
-        <footer className="glass-panel overflow-hidden rounded-2xl">
-          <PlayerBar onExpandClick={() => setShowFullscreen(true)} />
-        </footer>
+        <AnimatePresence initial={false}>
+          {activeTab !== "home" && (
+            <motion.footer
+              key="player-footer"
+              initial={{ opacity: 0, y: 56, scale: 0.985 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 28, scale: 0.99 }}
+              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              className="glass-panel overflow-hidden rounded-2xl"
+            >
+              <PlayerBar onExpandClick={() => setShowFullscreen(true)} />
+            </motion.footer>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Fullscreen Player */}
