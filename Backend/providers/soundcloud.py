@@ -1,6 +1,24 @@
 import os
+import logging
 
 from .base import BaseProvider, fetch_json
+
+logger = logging.getLogger(__name__)
+
+try:
+    import yt_dlp
+    YT_DLP_AVAILABLE = True
+except ImportError:
+    yt_dlp = None
+    YT_DLP_AVAILABLE = False
+    logger.warning("yt-dlp is not installed, fallback disabled")
+
+
+def millis_to_duration(val: int | float) -> str:
+    seconds = int(val / 1000)
+    minutes = seconds // 60
+    remainder = seconds % 60
+    return f"{minutes}:{remainder:02d}"
 
 
 class SoundCloudProvider(BaseProvider):
@@ -9,67 +27,136 @@ class SoundCloudProvider(BaseProvider):
     def __init__(self) -> None:
         self.client_id = os.getenv("SOUNDCLOUD_CLIENT_ID")
 
+        self.ydl_opts = {
+            "quiet": True,
+            "nocheckcertificate": True,
+            "no_warnings": True,
+        }
+
+        if not self.client_id:
+            logger.warning("SOUNDCLOUD_CLIENT_ID not set")
+
     def is_enabled(self) -> bool:
         return bool(self.client_id)
 
-    def search(self, query: str, limit: int = 8) -> list[dict]:
-        if not self.client_id:
-            return []
+    # ---------------- SEARCH ----------------
+    def search(self, query: str, limit: int = 8, cursor: str | None = None) -> tuple[list[dict], str | None]:
+        logger.info("SoundCloud search: %s", query)
 
         try:
-            data = fetch_json(
-                "https://api-v2.soundcloud.com/search/tracks",
-                {"q": query, "client_id": self.client_id, "limit": limit},
-            )
+            if cursor:
+                response = fetch_json(cursor)
+            else:
+                url = "https://api-v2.soundcloud.com/search/tracks"
+                response = fetch_json(url, {
+                    "q": query,
+                    "client_id": self.client_id,
+                    "limit": limit,
+                })
 
+            next_cursor = response.get("next_href")
+
+            collection = response.get("collection", []) or []
             tracks = []
-            for track in data.get("collection", []):
-                if not track.get("streamable", True):
+
+            for entry in collection:
+                if not entry:
                     continue
 
-                artwork = track.get("artwork_url") or track.get("user", {}).get("avatar_url")
-                if artwork and "large.jpg" in artwork:
-                    artwork = artwork.replace("large.jpg", "t500x500.jpg")
+                artwork = entry.get("artwork_url") or ""
+                thumbnail = artwork.replace("-large.", "-t500x500.") if artwork else "https://via.placeholder.com/500"
 
-                duration_ms = track.get("duration", 0)
-                if not duration_ms or duration_ms < 1000:
-                    continue
+                user = entry.get("user") or {}
+                channel = user.get("username", "SoundCloud")
 
-                duration = f"{duration_ms // 60000}:{(duration_ms % 60000) // 1000:02d}"
+                tracks.append({
+                    "id": str(entry.get("id")),
+                    "title": entry.get("title"),
+                    "channel": channel,
+                    "duration": millis_to_duration(entry.get("duration", 0) or 0),
+                    "thumbnail": thumbnail,
+                    "source": self.source_name,
+                })
 
-                tracks.append(
-                    {
-                        "id": str(track["id"]),
-                        "title": track.get("title"),
-                        "channel": track.get("user", {}).get("username", "SoundCloud"),
-                        "duration": duration,
-                        "thumbnail": artwork or "https://via.placeholder.com/500",
-                        "source": self.source_name,
-                    }
-                )
-            return tracks
-        except Exception as error:
-            print(f"SoundCloud search error: {error}")
-            return []
+            return tracks, next_cursor
 
+        except Exception as e:
+            logger.exception("SoundCloud search error: %s", e)
+            return [], None
+
+    # ---------------- STREAM ----------------
     def get_stream_url(self, track_id: str) -> str | None:
-        if not self.client_id:
-            return None
+        logger.info("Getting stream for track_id=%s", track_id)
 
+        # ===== 1. OFFICIAL SOUND CLOUD API =====
         try:
-            fetch_json(
+            track = fetch_json(
                 f"https://api-v2.soundcloud.com/tracks/{track_id}",
                 {"client_id": self.client_id},
             )
-            streams = fetch_json(
-                f"https://api-v2.soundcloud.com/tracks/{track_id}/streams",
-                {"client_id": self.client_id},
-            )
 
-            for key in ["hls_aac_160_url", "hls_aac_96_url", "http_mp3_128_url"]:
-                if streams.get(key):
-                    return streams[key]
-        except Exception as error:
-            print(f"SoundCloud stream error: {error}")
+            transcodings = track.get("media", {}).get("transcodings", []) or []
+            progressive = [
+                item for item in transcodings
+                if (item.get("format") or {}).get("protocol") == "progressive"
+            ]
+            others = [item for item in transcodings if item not in progressive]
+            ordered = progressive + others
 
+            for transcoding in ordered:
+                try:
+                    stream_resp = fetch_json(
+                        transcoding["url"],
+                        {
+                            "client_id": self.client_id,
+                            "track_authorization": track.get("track_authorization", "")
+                        },
+                    )
+
+                    url = stream_resp.get("url")
+                    if url:
+                        protocol = (transcoding.get("format") or {}).get("protocol")
+                        logger.info("Stream resolved via API (%s)", protocol)
+                        return url
+
+                except Exception:
+                    continue
+
+        except Exception as e:
+            logger.exception("SoundCloud API error: %s", e)
+
+        # ===== 2. YT-DLP FALLBACK =====
+        if YT_DLP_AVAILABLE and yt_dlp is not None:
+            logger.info("Fallback to yt-dlp")
+
+            try:
+                # IMPORTANT: api URL, not web URL without artist slug
+                track_url = f"https://api.soundcloud.com/tracks/{track_id}"
+
+                with yt_dlp.YoutubeDL({
+                    **self.ydl_opts,
+                    "format": "bestaudio/best",
+                    "extractor_args": {
+                        "soundcloud": {
+                            "client_id": "auto"
+                        }
+                    }
+                }) as ydl:
+
+                    info = ydl.extract_info(track_url, download=False)
+
+                    if not info:
+                        return None
+
+                    # safest extraction
+                    if info.get("url"):
+                        return info["url"]
+
+                    if info.get("formats"):
+                        return info["formats"][-1].get("url")
+
+            except Exception as e:
+                logger.exception("yt-dlp fallback error: %s", e)
+
+        logger.warning("No stream found for track_id=%s", track_id)
         return None

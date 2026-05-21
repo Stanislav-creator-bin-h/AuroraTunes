@@ -1,32 +1,50 @@
+# Trigger hot reload for new providers
 import json
+import logging
 import os
 import random
 import sys
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from functools import wraps
 from pathlib import Path
-
-import jwt
-from dotenv import load_dotenv
-from flask import Flask, g, jsonify, request
-from flask_cors import CORS
-from sqlalchemy import delete, select, text
-from werkzeug.security import check_password_hash, generate_password_hash
-
-from providers import SoundCloudProvider, YT_DLP_AVAILABLE, YouTubeProvider
 
 if getattr(sys, 'frozen', False):
     base_dir = Path.cwd()
 else:
     base_dir = Path(__file__).resolve().parent
 
+# pyrefly: ignore [missing-import]
+from dotenv import load_dotenv
 load_dotenv(dotenv_path=base_dir / ".env")
+
+logging.basicConfig(level=logging.DEBUG)
+
+# pyrefly: ignore [missing-import]
+import jwt
+# pyrefly: ignore [missing-import]
+from flask import Flask, Response, g, jsonify, request
+# pyrefly: ignore [missing-import]
+from flask_cors import CORS
+from sqlalchemy import delete, func, select, text
+from sqlalchemy.exc import IntegrityError
+# pyrefly: ignore [missing-import]
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from providers import SoundCloudProvider, YT_DLP_AVAILABLE, YouTubeProvider
+from providers.base import fetch_json
 
 from db import SessionLocal, engine, get_db_session
 from models import CustomBackground, ListeningHistory, PlayerState, User
 
 app = Flask(__name__)
-CORS(app)
+app.logger.setLevel(logging.DEBUG)
+CORS(
+    app,
+    resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5000", "http://127.0.0.1:5000"]}},
+    supports_credentials=True,
+)
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-change-this-secret")
 JWT_ALGORITHM = "HS256"
@@ -36,6 +54,9 @@ PLAYER_DATA_PATH = DATA_DIR / "player_data.json"
 
 youtube_provider = YouTubeProvider()
 soundcloud_provider = SoundCloudProvider()
+
+print(f"[INIT] SOUNDCLOUD_CLIENT_ID loaded: {bool(soundcloud_provider.client_id)}", flush=True)
+print(f"[INIT] client_id value: {soundcloud_provider.client_id!r}", flush=True)
 
 if not youtube_provider.is_enabled():
     print("YOUTUBE_API_KEY is not configured. YouTube search will be unavailable.")
@@ -74,13 +95,18 @@ def serialize_datetime(value):
 
 
 def serialize_user(user: User) -> dict:
+    try:
+        backgrounds = [item.image_url for item in user.custom_backgrounds]
+    except Exception:
+        backgrounds = []
+
     return {
         "id": str(user.id),
         "username": user.username,
         "email": user.email,
         "avatar": user.avatar_url,
         "createdAt": serialize_datetime(user.created_at),
-        "customBackgrounds": [item.image_url for item in user.custom_backgrounds],
+        "customBackgrounds": backgrounds,
     }
 
 
@@ -164,21 +190,31 @@ def register():
     if len(password) < 6:
         return jsonify({"error": "Password must contain at least 6 characters"}), 400
 
-    with get_db_session() as session:
-        existing = session.scalar(select(User).where(User.email == email))
-        if existing:
-            return jsonify({"error": "User with this email already exists"}), 409
+    try:
+        with get_db_session() as session:
+            existing = session.scalar(
+                select(User).where(func.lower(User.email) == email)
+            )
+            if existing:
+                return jsonify({"error": "Користувач з таким email вже існує"}), 409
 
-        user = User(
-            username=username,
-            email=email,
-            password_hash=generate_password_hash(password),
-        )
-        session.add(user)
-        session.flush()
-        session.refresh(user)
+            user = User(
+                username=username,
+                email=email,
+                password_hash=generate_password_hash(password),
+            )
+            session.add(user)
+            session.flush()
+            session.refresh(user)
 
-        return jsonify({"user": serialize_user(user), "token": create_token(user.id)}), 201
+            return jsonify(
+                {"user": serialize_user(user), "token": create_token(str(user.id))}
+            ), 201
+    except IntegrityError:
+        return jsonify({"error": "Користувач з таким email вже існує"}), 409
+    except Exception as error:
+        app.logger.exception("Registration failed: %s", error)
+        return jsonify({"error": "Помилка бази даних під час реєстрації. Перевірте підключення до SQL Server."}), 500
 
 
 @app.route("/auth/login", methods=["POST"])
@@ -190,7 +226,7 @@ def login():
     with get_db_session() as session:
         user = session.scalar(select(User).where(User.email == email))
         if not user or not check_password_hash(user.password_hash, password):
-            return jsonify({"error": "Invalid email or password"}), 401
+            return jsonify({"error": "Невірний email або пароль"}), 401
 
         return jsonify({"user": serialize_user(user), "token": create_token(user.id)})
 
@@ -259,19 +295,98 @@ def delete_background(background_id: str):
 @app.route("/search", methods=["GET"])
 def search():
     query = request.args.get("q", "").strip()
-    source = request.args.get("source", "all")
+    source = request.args.get("source", "youtube")
+    cursor = request.args.get("cursor", "").strip() or None
 
     if len(query) < 2:
-        return jsonify([])
+        return jsonify({"tracks": [], "nextCursor": None})
 
+    next_cursor = None
     tracks = []
-    if source in ["youtube", "all"]:
-        tracks.extend(youtube_provider.search(query, limit=12))
-    if source in ["soundcloud", "all"]:
-        tracks.extend(soundcloud_provider.search(query, limit=8))
 
-    random.shuffle(tracks)
-    return jsonify(tracks[:20])
+    if source == "youtube":
+        tracks, next_cursor = youtube_provider.search(query, limit=20, page_token=cursor)
+    elif source == "soundcloud":
+        if soundcloud_provider.is_enabled():
+            tracks, next_cursor = soundcloud_provider.search(query, limit=20, cursor=cursor)
+    else:
+        youtube_tracks, youtube_cursor = youtube_provider.search(query, limit=12, page_token=cursor)
+        tracks.extend(youtube_tracks)
+        next_cursor = youtube_cursor
+        if soundcloud_provider.is_enabled():
+            soundcloud_tracks, _ = soundcloud_provider.search(query, limit=8)
+            tracks.extend(soundcloud_tracks)
+        random.shuffle(tracks)
+        tracks = tracks[:20]
+
+    return jsonify({"tracks": tracks, "nextCursor": next_cursor})
+
+
+def resolve_stream_url(source: str, track_id: str) -> str | None:
+    if source == "soundcloud":
+        if not soundcloud_provider.is_enabled():
+            return None
+        return soundcloud_provider.get_stream_url(track_id)
+
+    if source == "youtube":
+        if not YT_DLP_AVAILABLE:
+            return None
+        return youtube_provider.get_stream_url(track_id)
+
+    return None
+
+
+@app.route("/audio/<source>/<track_id>", methods=["GET"])
+def proxy_audio(source: str, track_id: str):
+    if not track_id:
+        return jsonify({"error": "Track ID is required"}), 400
+
+    upstream_url = resolve_stream_url(source, track_id)
+    if not upstream_url:
+        return jsonify({"error": "Stream not available"}), 404
+
+    upstream_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    }
+    range_header = request.headers.get("Range")
+    if range_header:
+        upstream_headers["Range"] = range_header
+
+    try:
+        upstream_req = urllib.request.Request(upstream_url, headers=upstream_headers)
+        upstream_resp = urllib.request.urlopen(upstream_req, timeout=45)
+    except urllib.error.HTTPError as error:
+        app.logger.exception("Audio proxy upstream HTTP error")
+        return jsonify({"error": f"Upstream error: {error.code}"}), 502
+    except Exception as error:
+        app.logger.exception("Audio proxy failed")
+        return jsonify({"error": str(error)}), 502
+
+    excluded = {"transfer-encoding", "connection", "content-encoding", "keep-alive"}
+    pass_headers = {
+        key: value
+        for key, value in upstream_resp.headers.items()
+        if key.lower() not in excluded
+    }
+    pass_headers["Accept-Ranges"] = "bytes"
+    pass_headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges"
+
+    def generate():
+        try:
+            while True:
+                chunk = upstream_resp.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            upstream_resp.close()
+
+    return Response(
+        generate(),
+        status=upstream_resp.status,
+        headers=pass_headers,
+        direct_passthrough=True,
+    )
 
 
 @app.route("/stream/<source>/<track_id>", methods=["GET"])
@@ -283,18 +398,37 @@ def get_stream(source: str, track_id: str):
         if not soundcloud_provider.is_enabled():
             return jsonify({"error": "SoundCloud client ID is not configured"}), 500
 
-        url = soundcloud_provider.get_stream_url(track_id)
+        print(f"[SC] client_id present: {bool(soundcloud_provider.client_id)}", flush=True)
+        print(f"[SC] track_id: {track_id!r}", flush=True)
+
+        try:
+            track = fetch_json(
+                f"https://api-v2.soundcloud.com/tracks/{track_id}",
+                {"client_id": soundcloud_provider.client_id},
+            )
+            print(f"[SC] track keys: {list(track.keys())}", flush=True)
+            transcodings = track.get("media", {}).get("transcodings", [])
+            print(f"[SC] transcodings count: {len(transcodings)}", flush=True)
+            for t in transcodings:
+                fmt = t.get("format", {})
+                print(f"  protocol={fmt.get('protocol')} mime={fmt.get('mime_type')}", flush=True)
+        except Exception as e:
+            print(f"[SC] fetch failed: {e}", flush=True)
+
+        url = resolve_stream_url(source, track_id)
+        print(f"[SC] stream url result: {url!r}", flush=True)
+
         if url:
-            return jsonify({"stream_url": url})
+            return jsonify({"stream_url": url, "playback_url": f"/audio/{source}/{track_id}"})
         return jsonify({"error": "Could not get stream URL"}), 404
 
     if source == "youtube":
         if not YT_DLP_AVAILABLE:
             return jsonify({"error": "yt-dlp is not installed on the server"}), 501
 
-        url = youtube_provider.get_stream_url(track_id)
+        url = resolve_stream_url(source, track_id)
         if url:
-            return jsonify({"stream_url": url})
+            return jsonify({"stream_url": url, "playback_url": f"/audio/{source}/{track_id}"})
         return jsonify({"error": "Failed to extract YouTube audio"}), 404
 
     return jsonify({"error": "Unknown source"}), 400
@@ -424,6 +558,11 @@ def health():
 
 @app.route("/random", methods=["GET"])
 def get_random_tracks():
+    try:
+        limit = min(max(int(request.args.get("limit", 12)), 4), 24)
+    except ValueError:
+        limit = 12
+
     genres = [
         "pop music",
         "electronic music",
@@ -438,18 +577,18 @@ def get_random_tracks():
     ]
 
     random_genre = random.choice(genres)
-    tracks = youtube_provider.search(random_genre, limit=8)
+    per_source = max(limit // 2, 4)
+    youtube_tracks, _ = youtube_provider.search(random_genre, limit=per_source)
+    tracks = youtube_tracks
 
     if soundcloud_provider.is_enabled():
-        tracks.extend(soundcloud_provider.search(random_genre, limit=4))
+        soundcloud_tracks, _ = soundcloud_provider.search(random_genre, limit=max(per_source // 2, 3))
+        tracks.extend(soundcloud_tracks)
 
     random.shuffle(tracks)
-    return jsonify(tracks[:12])
+    return jsonify(tracks[:limit])
 
 
 if __name__ == "__main__":
-    print("AuroraTunes backend started")
-    print("Search:  GET http://localhost:5000/search?q=query")
-    print("Stream:  GET http://localhost:5000/stream/youtube/{id}")
-    print("         GET http://localhost:5000/stream/soundcloud/{id}")
+    print("AuroraTunes backend started", flush=True)
     app.run(debug=True, port=5000, host="0.0.0.0")

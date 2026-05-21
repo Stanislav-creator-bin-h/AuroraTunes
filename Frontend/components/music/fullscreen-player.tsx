@@ -73,11 +73,13 @@ const ViewModeMenu = memo(function ViewModeMenu({
 })
 
 export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: FullscreenPlayerProps) {
-  const { currentTrack, isPlaying, togglePlay, progress, volume, setVolume, currentTime, duration, seek, nextTrack, prevTrack } = usePlayer()
+  const { 
+    currentTrack, isPlaying, togglePlay, progress, volume, 
+    setVolume, currentTime, duration, seek, nextTrack, prevTrack,
+    isShuffle, isRepeat, toggleShuffle, toggleRepeat
+  } = usePlayer()
   const { backgroundUrl, brightness } = useBackground()
   const [isLiked, setIsLiked] = useState(false)
-  const [isRepeat, setIsRepeat] = useState(false)
-  const [isShuffle, setIsShuffle] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
 
   // Brightness logic: 0 = dark (0.5), 50 = default (0.25), 100 = original (0)
@@ -208,7 +210,7 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
 
               <div className="flex items-center justify-center gap-3 mb-6">
                 <button 
-                  onClick={() => setIsRepeat(!isRepeat)}
+                  onClick={toggleRepeat}
                   className={cn("p-2 transition-colors", isRepeat ? "text-white" : "text-white/40 hover:text-white")}
                 >
                   <Repeat className="w-4 h-4" />
@@ -226,7 +228,7 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
                   <SkipForward className="w-5 h-5" />
                 </button>
                 <button 
-                  onClick={() => setIsShuffle(!isShuffle)}
+                  onClick={toggleShuffle}
                   className={cn("p-2 transition-colors", isShuffle ? "text-white" : "text-white/40 hover:text-white")}
                 >
                   <Shuffle className="w-4 h-4" />
@@ -295,7 +297,7 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
 
             <div className="flex items-center justify-center gap-3 mb-6">
               <button 
-                onClick={() => setIsRepeat(!isRepeat)}
+                onClick={toggleRepeat}
                 className={cn("p-2 transition-colors", isRepeat ? "text-white" : "text-white/40 hover:text-white")}
               >
                 <Repeat className="w-4 h-4" />
@@ -313,7 +315,7 @@ export function FullscreenPlayer({ onClose, viewMode, onViewModeChange }: Fullsc
                 <SkipForward className="w-5 h-5" />
               </button>
               <button 
-                onClick={() => setIsShuffle(!isShuffle)}
+                onClick={toggleShuffle}
                 className={cn("p-2 transition-colors", isShuffle ? "text-white" : "text-white/40 hover:text-white")}
               >
                 <Shuffle className="w-4 h-4" />

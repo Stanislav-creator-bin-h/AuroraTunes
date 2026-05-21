@@ -30,19 +30,19 @@ export function AuthPanel() {
 
     try {
       if (isLogin) {
-        const success = await login(email, password)
-        if (!success) {
-          setError("Невірний email або пароль")
+        const result = await login(email, password)
+        if (!result.ok) {
+          setError(result.error)
         }
       } else {
-        if (username.length < 3) {
+        if (username.trim().length < 3) {
           setError("Ім'я користувача має бути мінімум 3 символи")
           setIsLoading(false)
           return
         }
-        const success = await register(username, email, password)
-        if (!success) {
-          setError("Користувач з таким email вже існує")
+        const result = await register(username, email, password)
+        if (!result.ok) {
+          setError(result.error)
         }
       }
     } finally {

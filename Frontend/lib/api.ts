@@ -1,7 +1,26 @@
 import type { AuthResponse, CustomBackground, Track, User } from "./types"
+import { getBackendBaseUrl, getBackendUnreachableMessage } from "./backend-url"
 
-const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_BASE_URL || "http://localhost:5000"
 const AUTH_TOKEN_KEY = "aurora_auth_token"
+
+function apiUrl(path: string): string {
+  const base = getBackendBaseUrl()
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`
+}
+
+async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(apiUrl(path), {
+      cache: "no-store",
+      ...init,
+    })
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(getBackendUnreachableMessage())
+    }
+    throw error
+  }
+}
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null
@@ -37,11 +56,20 @@ function normalizeTrack(entry: any): Track {
   }
 }
 
-export async function searchTracks(query: string, source: string = "all"): Promise<Track[]> {
+export interface SearchTracksPage {
+  tracks: Track[]
+  nextCursor: string | null
+}
+
+export async function searchTracksPage(
+  query: string,
+  source: string = "youtube",
+  cursor?: string,
+): Promise<SearchTracksPage> {
   const params = new URLSearchParams({ q: query, source })
-  const response = await fetch(`${BACKEND_BASE_URL}/search?${params.toString()}`, {
-    cache: "no-store",
-  })
+  if (cursor) params.set("cursor", cursor)
+
+  const response = await apiFetch(`/search?${params.toString()}`)
 
   if (!response.ok) {
     const body = await response.json().catch(() => null)
@@ -49,25 +77,42 @@ export async function searchTracks(query: string, source: string = "all"): Promi
   }
 
   const data = await response.json()
-  return Array.isArray(data) ? data.map(normalizeTrack) : []
+
+  if (Array.isArray(data)) {
+    return {
+      tracks: data.map(normalizeTrack),
+      nextCursor: null,
+    }
+  }
+
+  const tracks = Array.isArray(data?.tracks) ? data.tracks.map(normalizeTrack) : []
+  return {
+    tracks,
+    nextCursor: data?.nextCursor ?? null,
+  }
+}
+
+export async function searchTracks(query: string, source: string = "all"): Promise<Track[]> {
+  const page = await searchTracksPage(query, source)
+  return page.tracks
+}
+
+export function getAudioPlaybackUrl(track: Track): string {
+  const source = track.source || "youtube"
+  const id = encodeURIComponent(track.id)
+  return apiUrl(`/audio/${source}/${id}`)
 }
 
 export async function getStreamUrl(track: Track): Promise<string> {
-  const response = await fetch(`${BACKEND_BASE_URL}/stream/${track.source}/${track.id}`, {
-    cache: "no-store",
-  })
-
-  if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new Error(body?.error || "Не вдалося отримати посилання на потік")
+  if (!track?.id) {
+    throw new Error("ID треку відсутній")
   }
 
-  const data = await response.json()
-  return data.stream_url
+  return getAudioPlaybackUrl({ ...track, source: track.source || "youtube" })
 }
 
 export async function registerUser(username: string, email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${BACKEND_BASE_URL}/auth/register`, {
+  const response = await apiFetch("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ username, email, password }),
@@ -81,7 +126,7 @@ export async function registerUser(username: string, email: string, password: st
 }
 
 export async function loginUser(email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${BACKEND_BASE_URL}/auth/login`, {
+  const response = await apiFetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
@@ -95,9 +140,8 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
 }
 
 export async function getCurrentUser(): Promise<User> {
-  const response = await fetch(`${BACKEND_BASE_URL}/auth/me`, {
+  const response = await apiFetch("/auth/me", {
     headers: authHeaders(),
-    cache: "no-store",
   })
 
   if (!response.ok) {
@@ -109,7 +153,7 @@ export async function getCurrentUser(): Promise<User> {
 }
 
 export async function updateCurrentUser(payload: { avatarUrl?: string | null }): Promise<User> {
-  const response = await fetch(`${BACKEND_BASE_URL}/auth/me`, {
+  const response = await apiFetch("/auth/me", {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -127,16 +171,15 @@ export async function updateCurrentUser(payload: { avatarUrl?: string | null }):
 }
 
 export async function logoutUser(): Promise<void> {
-  await fetch(`${BACKEND_BASE_URL}/auth/logout`, {
+  await apiFetch("/auth/logout", {
     method: "POST",
     headers: authHeaders(),
   }).catch(() => undefined)
 }
 
 export async function getBackgrounds(): Promise<CustomBackground[]> {
-  const response = await fetch(`${BACKEND_BASE_URL}/backgrounds`, {
+  const response = await apiFetch("/backgrounds", {
     headers: authHeaders(),
-    cache: "no-store",
   })
 
   if (!response.ok) {
@@ -147,7 +190,7 @@ export async function getBackgrounds(): Promise<CustomBackground[]> {
 }
 
 export async function createBackground(imageUrl: string): Promise<CustomBackground> {
-  const response = await fetch(`${BACKEND_BASE_URL}/backgrounds`, {
+  const response = await apiFetch("/backgrounds", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -164,7 +207,7 @@ export async function createBackground(imageUrl: string): Promise<CustomBackgrou
 }
 
 export async function deleteBackground(backgroundId: string): Promise<void> {
-  const response = await fetch(`${BACKEND_BASE_URL}/backgrounds/${backgroundId}`, {
+  const response = await apiFetch(`/backgrounds/${backgroundId}`, {
     method: "DELETE",
     headers: authHeaders(),
   })
@@ -175,7 +218,7 @@ export async function deleteBackground(backgroundId: string): Promise<void> {
 }
 
 export async function savePlayerState(userId: string, state: any): Promise<void> {
-  const response = await fetch(`${BACKEND_BASE_URL}/player/state`, {
+  const response = await apiFetch("/player/state", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -190,7 +233,7 @@ export async function savePlayerState(userId: string, state: any): Promise<void>
 }
 
 export async function loadPlayerState(userId: string): Promise<any> {
-  const response = await fetch(`${BACKEND_BASE_URL}/player/state`, {
+  const response = await apiFetch("/player/state", {
     headers: authHeaders(),
   })
 
@@ -202,7 +245,7 @@ export async function loadPlayerState(userId: string): Promise<any> {
 }
 
 export async function addToListeningHistory(userId: string, track: Track, playedDuration: number): Promise<void> {
-  const response = await fetch(`${BACKEND_BASE_URL}/player/history`, {
+  const response = await apiFetch("/player/history", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -217,7 +260,7 @@ export async function addToListeningHistory(userId: string, track: Track, played
 }
 
 export async function getListeningHistory(userId: string): Promise<any[]> {
-  const response = await fetch(`${BACKEND_BASE_URL}/player/history`, {
+  const response = await apiFetch("/player/history", {
     headers: authHeaders(),
   })
 
@@ -229,7 +272,7 @@ export async function getListeningHistory(userId: string): Promise<any[]> {
 }
 
 export async function clearListeningHistory(): Promise<void> {
-  const response = await fetch(`${BACKEND_BASE_URL}/player/history`, {
+  const response = await apiFetch("/player/history", {
     method: "DELETE",
     headers: authHeaders(),
   })
@@ -239,10 +282,9 @@ export async function clearListeningHistory(): Promise<void> {
   }
 }
 
-export async function getRandomTracks(): Promise<Track[]> {
-  const response = await fetch(`${BACKEND_BASE_URL}/random`, {
-    cache: "no-store",
-  })
+export async function getRandomTracks(limit = 14): Promise<Track[]> {
+  const params = new URLSearchParams({ limit: String(limit) })
+  const response = await apiFetch(`/random?${params.toString()}`)
 
   if (!response.ok) {
     const body = await response.json().catch(() => null)

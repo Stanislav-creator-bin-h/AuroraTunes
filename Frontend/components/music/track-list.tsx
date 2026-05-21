@@ -3,12 +3,15 @@
 import { TrackCard } from "./track-card"
 import type { Track } from "@/lib/types"
 
+import type { PlayMode } from "@/lib/player-context"
+
 interface TrackListProps {
   tracks: Track[]
   title?: string
+  playMode?: PlayMode
 }
 
-export function TrackList({ tracks, title }: TrackListProps) {
+export function TrackList({ tracks, title, playMode = "normal" }: TrackListProps) {
   if (tracks.length === 0) {
     return (
       <div className="glass-panel flex min-h-[280px] flex-col items-center justify-center rounded-[28px] px-6 py-12 text-center">
@@ -28,7 +31,13 @@ export function TrackList({ tracks, title }: TrackListProps) {
       )}
       <div className="space-y-3">
         {tracks.map((track, index) => (
-          <TrackCard key={track.id} track={track} index={index} />
+          <TrackCard
+            key={`${track.source ?? "unknown"}-${track.id}`}
+            track={track}
+            index={index}
+            parentTracks={tracks}
+            playMode={playMode}
+          />
         ))}
       </div>
     </div>

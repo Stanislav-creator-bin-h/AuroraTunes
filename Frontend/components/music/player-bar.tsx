@@ -33,12 +33,14 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
     nextTrack,
     prevTrack,
     setVolume,
-    seek
+    seek,
+    isShuffle,
+    isRepeat,
+    toggleShuffle,
+    toggleRepeat
   } = usePlayer()
 
   const [isLiked, setIsLiked] = useState(false)
-  const [isShuffle, setIsShuffle] = useState(false)
-  const [isRepeat, setIsRepeat] = useState(false)
 
   const handleSeek = useCallback((value: number[]) => {
     if (duration) seek((value[0] / 100) * duration)
@@ -158,7 +160,7 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
-              onClick={() => setIsShuffle(!isShuffle)}
+              onClick={toggleShuffle}
               className={cn(
                 "flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200",
                 isShuffle 
@@ -221,7 +223,7 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
-              onClick={() => setIsRepeat(!isRepeat)}
+              onClick={toggleRepeat}
               className={cn(
                 "flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200",
                 isRepeat 

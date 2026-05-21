@@ -15,11 +15,13 @@ import {
 } from "./api"
 import type { CustomBackground, User } from "./types"
 
+export type AuthResult = { ok: true } | { ok: false; error: string }
+
 interface AuthContextType {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string) => Promise<boolean>
-  register: (username: string, email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<AuthResult>
+  register: (username: string, email: string, password: string) => Promise<AuthResult>
   logout: () => void
   updateAvatar: (avatarUrl: string) => void
   addCustomBackground: (imageUrl: string) => void
@@ -74,25 +76,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<AuthResult> => {
     try {
-      const response = await loginUser(email, password)
+      const response = await loginUser(email.trim().toLowerCase(), password)
       setAuthToken(response.token)
-      await refreshUser(response.user)
-      return true
-    } catch {
-      return false
+      applyUserBackgrounds(response.user, [])
+      try {
+        const nextBackgrounds = await getBackgrounds()
+        applyUserBackgrounds(response.user, nextBackgrounds)
+      } catch {
+        // Backgrounds are optional right after login
+      }
+      return { ok: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Помилка входу"
+      return { ok: false, error: message }
     }
   }
 
-  const register = async (username: string, email: string, password: string): Promise<boolean> => {
+  const register = async (username: string, email: string, password: string): Promise<AuthResult> => {
     try {
-      const response = await registerUser(username, email, password)
+      const response = await registerUser(username.trim(), email.trim().toLowerCase(), password)
       setAuthToken(response.token)
-      await refreshUser(response.user)
-      return true
-    } catch {
-      return false
+      applyUserBackgrounds(response.user, [])
+      try {
+        const nextBackgrounds = await getBackgrounds()
+        applyUserBackgrounds(response.user, nextBackgrounds)
+      } catch {
+        // Backgrounds are optional right after registration
+      }
+      return { ok: true }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Помилка реєстрації"
+      return { ok: false, error: message }
     }
   }
 

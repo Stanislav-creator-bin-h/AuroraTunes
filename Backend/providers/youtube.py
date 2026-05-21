@@ -20,22 +20,27 @@ class YouTubeProvider(BaseProvider):
     def is_enabled(self) -> bool:
         return bool(self.api_key)
 
-    def search(self, query: str, limit: int = 15) -> list[dict]:
+    def search(self, query: str, limit: int = 15, page_token: str | None = None) -> tuple[list[dict], str | None]:
         if not self.api_key:
-            return []
+            return [], None
 
         try:
+            params = {
+                "part": "snippet",
+                "maxResults": min(limit, 50),
+                "q": query,
+                "type": "video",
+                "videoCategoryId": "10",
+                "key": self.api_key,
+            }
+            if page_token:
+                params["pageToken"] = page_token
+
             search_data = fetch_json(
                 "https://www.googleapis.com/youtube/v3/search",
-                {
-                    "part": "snippet",
-                    "maxResults": limit,
-                    "q": query,
-                    "type": "video",
-                    "videoCategoryId": "10",
-                    "key": self.api_key,
-                },
+                params,
             )
+            next_page_token = search_data.get("nextPageToken")
 
             video_ids = [
                 item["id"]["videoId"]
@@ -44,7 +49,7 @@ class YouTubeProvider(BaseProvider):
             ]
 
             if not video_ids:
-                return []
+                return [], next_page_token
 
             details = fetch_json(
                 "https://www.googleapis.com/youtube/v3/videos",
@@ -81,10 +86,10 @@ class YouTubeProvider(BaseProvider):
                     }
                 )
 
-            return tracks
+            return tracks, next_page_token
         except Exception as error:
             print(f"YouTube search error: {error}")
-            return []
+            return [], None
 
     def can_stream(self) -> bool:
         return YT_DLP_AVAILABLE
@@ -94,10 +99,11 @@ class YouTubeProvider(BaseProvider):
             return None
 
         ydl_opts = {
-            "format": "m4a/bestaudio/best",
+            "format": "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
             "extract_flat": False,
+            "noplaylist": True,
         }
 
         try:
@@ -114,7 +120,14 @@ class YouTubeProvider(BaseProvider):
                     item for item in formats if item.get("acodec") != "none" and item.get("url")
                 ]
                 if audio_formats:
-                    return audio_formats[0]["url"]
+                    preferred = sorted(
+                        audio_formats,
+                        key=lambda item: (
+                            0 if (item.get("ext") or "") in {"m4a", "mp3", "mp4"} else 1,
+                            -(item.get("abr") or 0),
+                        ),
+                    )
+                    return preferred[0]["url"]
         except Exception as error:
             print(f"yt-dlp error for {track_id}: {error}")
 
