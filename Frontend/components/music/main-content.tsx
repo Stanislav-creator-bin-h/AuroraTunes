@@ -8,6 +8,7 @@ import { AuthPanel } from "./auth-panel"
 import { InfiniteTrackScroll } from "./infinite-track-scroll"
 import { NowPlayingPanel } from "./now-playing-panel"
 import { AiPanel } from "./ai-panel"
+import { PlaylistsPanel } from "./playlists-panel"
 import { useInfiniteTracks } from "@/hooks/use-infinite-tracks"
 import { useInfiniteSearch } from "@/hooks/use-infinite-search"
 import { usePlayer } from "@/lib/player-context"
@@ -86,7 +87,7 @@ export function MainContent({ activeTab }: MainContentProps) {
   if (activeTab === "playlists") return (
     <div className={PAGE}>
       <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Плейлисти</h1>
-      <TrackList tracks={[]} />
+      <PlaylistsPanel />
     </div>
   )
 

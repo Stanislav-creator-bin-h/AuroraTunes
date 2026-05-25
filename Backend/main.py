@@ -36,7 +36,7 @@ from providers import SoundCloudProvider, YT_DLP_AVAILABLE, YouTubeProvider
 from providers.base import fetch_json
 
 from db import SessionLocal, engine, get_db_session
-from models import CustomBackground, ListeningHistory, PlayerState, User
+from models import CustomBackground, ListeningHistory, PlayerState, Playlist, PlaylistTrack, User
 
 app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
@@ -587,6 +587,198 @@ def get_random_tracks():
 
     random.shuffle(tracks)
     return jsonify(tracks[:limit])
+
+
+# -------------------- PLAYLISTS --------------------
+
+LIKED_SONGS_NAME = "Liked Songs"
+
+
+def serialize_playlist_track(pt: PlaylistTrack) -> dict:
+    return {
+        "id": pt.track_id,
+        "source": pt.source,
+        "title": pt.title,
+        "channel": pt.channel,
+        "thumbnail": pt.thumbnail,
+        "duration": pt.duration or "0:00",
+    }
+
+
+def serialize_playlist(pl: Playlist) -> dict:
+    return {
+        "id": str(pl.id),
+        "name": pl.name,
+        "isSystem": bool(pl.is_system),
+        "createdAt": serialize_datetime(pl.created_at),
+        "tracks": [serialize_playlist_track(t) for t in pl.tracks],
+    }
+
+
+@app.route("/playlists", methods=["GET", "POST"])
+@require_auth
+def playlists():
+    user = g.current_user
+    session = g.db
+
+    if request.method == "GET":
+        items = session.scalars(
+            select(Playlist)
+            .where(Playlist.user_id == user.id)
+            .order_by(Playlist.created_at)
+        ).all()
+        return jsonify([serialize_playlist(pl) for pl in items])
+
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "name is required"}), 400
+
+    pl = Playlist(user_id=user.id, name=name, is_system=False)
+    session.add(pl)
+    session.commit()
+    session.refresh(pl)
+    return jsonify(serialize_playlist(pl)), 201
+
+
+@app.route("/playlists/<playlist_id>", methods=["DELETE"])
+@require_auth
+def delete_playlist(playlist_id: str):
+    user = g.current_user
+    session = g.db
+
+    pl = session.get(Playlist, playlist_id)
+    if not pl or str(pl.user_id) != str(user.id):
+        return jsonify({"error": "Playlist not found"}), 404
+    if pl.is_system:
+        return jsonify({"error": "Cannot delete system playlist"}), 403
+
+    session.delete(pl)
+    session.commit()
+    return jsonify({"status": "deleted"})
+
+
+@app.route("/playlists/<playlist_id>/tracks", methods=["POST"])
+@require_auth
+def add_track_to_playlist(playlist_id: str):
+    user = g.current_user
+    session = g.db
+
+    pl = session.get(Playlist, playlist_id)
+    if not pl or str(pl.user_id) != str(user.id):
+        return jsonify({"error": "Playlist not found"}), 404
+
+    payload = request.get_json(silent=True) or {}
+    track_id = str(payload.get("id") or "").strip()
+    source = str(payload.get("source") or "youtube").strip()
+    if not track_id:
+        return jsonify({"error": "track id is required"}), 400
+
+    # Avoid duplicates
+    existing = next(
+        (t for t in pl.tracks if t.track_id == track_id and t.source == source),
+        None,
+    )
+    if existing:
+        return jsonify(serialize_playlist(pl)), 200
+
+    max_pos = max((t.position for t in pl.tracks), default=-1) + 1
+    pt = PlaylistTrack(
+        playlist_id=pl.id,
+        track_id=track_id,
+        source=source,
+        title=str(payload.get("title") or "Unknown title"),
+        channel=payload.get("channel"),
+        thumbnail=payload.get("thumbnail"),
+        duration=payload.get("duration"),
+        position=max_pos,
+    )
+    session.add(pt)
+    session.commit()
+    session.refresh(pl)
+    return jsonify(serialize_playlist(pl)), 201
+
+
+@app.route("/playlists/<playlist_id>/tracks/<source>/<track_id>", methods=["DELETE"])
+@require_auth
+def remove_track_from_playlist(playlist_id: str, source: str, track_id: str):
+    user = g.current_user
+    session = g.db
+
+    pl = session.get(Playlist, playlist_id)
+    if not pl or str(pl.user_id) != str(user.id):
+        return jsonify({"error": "Playlist not found"}), 404
+
+    pt = next(
+        (t for t in pl.tracks if t.track_id == track_id and t.source == source),
+        None,
+    )
+    if not pt:
+        return jsonify({"error": "Track not found in playlist"}), 404
+
+    session.delete(pt)
+    session.commit()
+    session.refresh(pl)
+    return jsonify(serialize_playlist(pl))
+
+
+@app.route("/playlists/liked/sync", methods=["POST"])
+@require_auth
+def sync_liked_track():
+    """Add or remove a track from the system 'Liked Songs' playlist."""
+    user = g.current_user
+    session = g.db
+
+    payload = request.get_json(silent=True) or {}
+    action = payload.get("action", "add")  # "add" | "remove"
+    track_id = str(payload.get("id") or "").strip()
+    source = str(payload.get("source") or "youtube").strip()
+    if not track_id:
+        return jsonify({"error": "track id is required"}), 400
+
+    # Get or create the system Liked Songs playlist
+    liked_pl = session.scalar(
+        select(Playlist).where(
+            Playlist.user_id == user.id,
+            Playlist.is_system == True,  # noqa: E712
+            Playlist.name == LIKED_SONGS_NAME,
+        )
+    )
+    if not liked_pl:
+        liked_pl = Playlist(user_id=user.id, name=LIKED_SONGS_NAME, is_system=True)
+        session.add(liked_pl)
+        session.flush()
+        session.refresh(liked_pl)
+
+    if action == "remove":
+        pt = next(
+            (t for t in liked_pl.tracks if t.track_id == track_id and t.source == source),
+            None,
+        )
+        if pt:
+            session.delete(pt)
+    else:
+        existing = next(
+            (t for t in liked_pl.tracks if t.track_id == track_id and t.source == source),
+            None,
+        )
+        if not existing:
+            max_pos = max((t.position for t in liked_pl.tracks), default=-1) + 1
+            pt = PlaylistTrack(
+                playlist_id=liked_pl.id,
+                track_id=track_id,
+                source=source,
+                title=str(payload.get("title") or "Unknown title"),
+                channel=payload.get("channel"),
+                thumbnail=payload.get("thumbnail"),
+                duration=payload.get("duration"),
+                position=max_pos,
+            )
+            session.add(pt)
+
+    session.commit()
+    session.refresh(liked_pl)
+    return jsonify(serialize_playlist(liked_pl))
 
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ def build_database_url(
     driver: str | None = None,
 ) -> str:
     user = user or os.getenv("MSSQL_USER", "sa")
-    password = password or os.getenv("MSSQL_PASSWORD", "ChangeMe_StrongPassword_123!@#")
+    password = password or os.getenv("MSSQL_PASSWORD", "Password123!")
     host = host or os.getenv("MSSQL_HOST", "localhost")
     port = port or os.getenv("MSSQL_PORT", "1433")
     database = database or os.getenv("MSSQL_DATABASE", "AuroraTunes")

@@ -8,10 +8,16 @@ import {
   loadPlayerState as loadPlayerStateApi,
   getListeningHistory,
   clearListeningHistory,
+  getPlaylists,
+  createPlaylist as createPlaylistApi,
+  deletePlaylist as deletePlaylistApi,
+  addTrackToPlaylist as addTrackToPlaylistApi,
+  removeTrackFromPlaylist as removeTrackFromPlaylistApi,
+  syncLikedTrack,
 } from "./api"
 import { useAuth } from "./auth-context"
 import { isTrackLiked, loadLikedTracks, toggleLikedTrack } from "./liked-tracks"
-import type { Track } from "./types"
+import type { Playlist, Track } from "./types"
 
 export type PlayMode = "normal" | "radio"
 
@@ -42,6 +48,7 @@ interface PlayerContextType {
   listeningHistory: ListeningHistoryItem[]
   likedTracks: Track[]
   playMode: PlayMode
+  playlists: Playlist[]
   setPlayMode: (mode: PlayMode) => void
   setCurrentTrack: (track: Track | null) => void
   togglePlay: () => void
@@ -59,6 +66,11 @@ interface PlayerContextType {
   toggleRepeat: () => void
   toggleLike: (track: Track) => void
   isLiked: (track: Track) => boolean
+  loadPlaylists: () => Promise<void>
+  createPlaylist: (name: string) => Promise<Playlist>
+  deletePlaylist: (id: string) => Promise<void>
+  addTrackToPlaylist: (playlistId: string, track: Track) => Promise<void>
+  removeTrackFromPlaylist: (playlistId: string, source: string, trackId: string) => Promise<void>
 }
 
 const PlayerContext = createContext<PlayerContextType | null>(null)
@@ -111,6 +123,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [playMode, setPlayModeState] = useState<PlayMode>("normal")
   const [isShuffle, setIsShuffle] = useState(false)
   const [isRepeat, setIsRepeat] = useState(false)
+  const [playlists, setPlaylists] = useState<Playlist[]>([])
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const playPromiseRef = useRef<Promise<void> | null>(null)
   const playGenerationRef = useRef(0)
@@ -154,6 +167,49 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     restoreState()
     return () => { cancelled = true }
   }, [user])
+
+  // Load playlists whenever auth state changes
+  useEffect(() => {
+    if (!user) {
+      setPlaylists([])
+      return
+    }
+    getPlaylists()
+      .then(setPlaylists)
+      .catch((err) => console.error("Failed to load playlists:", err))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user])
+
+  const loadPlaylists = useCallback(async () => {
+    if (!user) return
+    try {
+      const data = await getPlaylists()
+      setPlaylists(data)
+    } catch (err) {
+      console.error("Failed to load playlists:", err)
+    }
+  }, [user])
+
+  const createPlaylist = useCallback(async (name: string): Promise<Playlist> => {
+    const pl = await createPlaylistApi(name)
+    setPlaylists((prev) => [...prev, pl])
+    return pl
+  }, [])
+
+  const deletePlaylist = useCallback(async (id: string) => {
+    await deletePlaylistApi(id)
+    setPlaylists((prev) => prev.filter((p) => p.id !== id))
+  }, [])
+
+  const addTrackToPlaylist = useCallback(async (playlistId: string, track: Track) => {
+    const updated = await addTrackToPlaylistApi(playlistId, track)
+    setPlaylists((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+  }, [])
+
+  const removeTrackFromPlaylist = useCallback(async (playlistId: string, source: string, trackId: string) => {
+    const updated = await removeTrackFromPlaylistApi(playlistId, source, trackId)
+    setPlaylists((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+  }, [])
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = volume
@@ -410,8 +466,23 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [debouncedSave])
 
   const toggleLike = useCallback((track: Track) => {
+    const nowLiked = !isTrackLiked(likedTracks, track)
+    // Always update local state immediately
     setLikedTracks((prev) => toggleLikedTrack(prev, track))
-  }, [])
+    // If logged in, also sync to backend Liked Songs playlist
+    if (user) {
+      syncLikedTrack(track, nowLiked ? "add" : "remove")
+        .then((updatedPlaylist) => {
+          setPlaylists((prev) => {
+            const exists = prev.some((p) => p.id === updatedPlaylist.id)
+            return exists
+              ? prev.map((p) => (p.id === updatedPlaylist.id ? updatedPlaylist : p))
+              : [...prev, updatedPlaylist]
+          })
+        })
+        .catch((err) => console.error("Failed to sync liked track:", err))
+    }
+  }, [likedTracks, user])
 
   const isLiked = useCallback((track: Track) => isTrackLiked(likedTracks, track), [likedTracks])
 
@@ -440,6 +511,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         listeningHistory,
         likedTracks,
         playMode,
+        playlists,
         setPlayMode,
         setCurrentTrack,
         togglePlay,
@@ -457,6 +529,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         toggleRepeat,
         toggleLike,
         isLiked,
+        loadPlaylists,
+        createPlaylist,
+        deletePlaylist,
+        addTrackToPlaylist,
+        removeTrackFromPlaylist,
       }}
     >
       {children}

@@ -51,15 +51,9 @@ export function NowPlayingPanel({
 }: NowPlayingPanelProps) {
   return (
     <section className="hero-panel flex min-h-0 flex-col overflow-hidden rounded-[28px] xl:min-h-0 xl:flex-1">
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+      <div className="min-h-0 flex-1 overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         <div className="mx-auto flex w-full max-w-sm flex-col items-center pb-2">
           <div className="mb-3 flex w-full items-center justify-between gap-2">
-            <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/50">
-              Now Playing
-            </span>
-            <span className="rounded-full bg-white/8 px-3 py-1 text-xs text-white/45">
-              {currentTrack ? (getSourceLabel(currentTrack.source) ?? "Локально") : "—"}
-            </span>
           </div>
 
           <AnimatePresence mode="wait">

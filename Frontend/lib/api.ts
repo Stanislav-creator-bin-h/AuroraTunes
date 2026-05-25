@@ -1,4 +1,4 @@
-import type { AuthResponse, CustomBackground, Track, User } from "./types"
+import type { AuthResponse, CustomBackground, Playlist, Track, User } from "./types"
 import { getBackendBaseUrl, getBackendUnreachableMessage } from "./backend-url"
 
 const AUTH_TOKEN_KEY = "aurora_auth_token"
@@ -40,9 +40,31 @@ function authHeaders(): HeadersInit {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
-async function readJsonError(response: Response, fallback: string): Promise<Error> {
-  const body = await response.json().catch(() => null)
-  return new Error(body?.error || fallback)
+async function safeJson(response: Response) {
+  const text = await response.text().catch(() => "")
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+async function readError(response: Response, fallback: string): Promise<Error> {
+  const data = await safeJson(response)
+  const message =
+    data?.message ||
+    data?.error ||
+    data?.detail ||
+    fallback
+
+  return new Error(`${message} (HTTP ${response.status})`)
+}
+
+// -------------------- TYPES --------------------
+
+export interface SearchTracksPage {
+  tracks: Track[]
+  nextCursor: string | null
 }
 
 function normalizeTrack(entry: any): Track {
@@ -56,10 +78,7 @@ function normalizeTrack(entry: any): Track {
   }
 }
 
-export interface SearchTracksPage {
-  tracks: Track[]
-  nextCursor: string | null
-}
+// -------------------- SEARCH --------------------
 
 export async function searchTracksPage(
   query: string,
@@ -72,11 +91,11 @@ export async function searchTracksPage(
   const response = await apiFetch(`/search?${params.toString()}`)
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
+    const body = await safeJson(response)
     throw new Error(body?.error || "Search failed")
   }
 
-  const data = await response.json()
+  const data = await safeJson(response)
 
   if (Array.isArray(data)) {
     return {
@@ -85,9 +104,10 @@ export async function searchTracksPage(
     }
   }
 
-  const tracks = Array.isArray(data?.tracks) ? data.tracks.map(normalizeTrack) : []
   return {
-    tracks,
+    tracks: Array.isArray(data?.tracks)
+      ? data.tracks.map(normalizeTrack)
+      : [],
     nextCursor: data?.nextCursor ?? null,
   }
 }
@@ -96,6 +116,8 @@ export async function searchTracks(query: string, source: string = "all"): Promi
   const page = await searchTracksPage(query, source)
   return page.tracks
 }
+
+// -------------------- AUDIO --------------------
 
 export function getAudioPlaybackUrl(track: Track): string {
   const source = track.source || "youtube"
@@ -108,10 +130,16 @@ export async function getStreamUrl(track: Track): Promise<string> {
     throw new Error("ID треку відсутній")
   }
 
-  return getAudioPlaybackUrl({ ...track, source: track.source || "youtube" })
+  return getAudioPlaybackUrl(track)
 }
 
-export async function registerUser(username: string, email: string, password: string): Promise<AuthResponse> {
+// -------------------- AUTH --------------------
+
+export async function registerUser(
+  username: string,
+  email: string,
+  password: string
+): Promise<AuthResponse> {
   const response = await apiFetch("/auth/register", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -119,13 +147,16 @@ export async function registerUser(username: string, email: string, password: st
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Registration failed")
+    throw await readError(response, "Registration failed")
   }
 
   return response.json()
 }
 
-export async function loginUser(email: string, password: string): Promise<AuthResponse> {
+export async function loginUser(
+  email: string,
+  password: string
+): Promise<AuthResponse> {
   const response = await apiFetch("/auth/login", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -133,7 +164,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Login failed")
+    throw await readError(response, "Login failed")
   }
 
   return response.json()
@@ -145,10 +176,10 @@ export async function getCurrentUser(): Promise<User> {
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Failed to load current user")
+    throw await readError(response, "Failed to load current user")
   }
 
-  const data = await response.json()
+  const data = await safeJson(response)
   return data.user
 }
 
@@ -163,10 +194,10 @@ export async function updateCurrentUser(payload: { avatarUrl?: string | null }):
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Failed to update user")
+    throw await readError(response, "Failed to update user")
   }
 
-  const data = await response.json()
+  const data = await safeJson(response)
   return data.user
 }
 
@@ -177,13 +208,15 @@ export async function logoutUser(): Promise<void> {
   }).catch(() => undefined)
 }
 
+// -------------------- BACKGROUNDS --------------------
+
 export async function getBackgrounds(): Promise<CustomBackground[]> {
   const response = await apiFetch("/backgrounds", {
     headers: authHeaders(),
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Failed to load backgrounds")
+    throw await readError(response, "Failed to load backgrounds")
   }
 
   return response.json()
@@ -200,7 +233,7 @@ export async function createBackground(imageUrl: string): Promise<CustomBackgrou
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Failed to save background")
+    throw await readError(response, "Failed to save background")
   }
 
   return response.json()
@@ -213,9 +246,11 @@ export async function deleteBackground(backgroundId: string): Promise<void> {
   })
 
   if (!response.ok) {
-    throw await readJsonError(response, "Failed to delete background")
+    throw await readError(response, "Failed to delete background")
   }
 }
+
+// -------------------- PLAYER --------------------
 
 export async function savePlayerState(userId: string, state: any): Promise<void> {
   const response = await apiFetch("/player/state", {
@@ -244,7 +279,13 @@ export async function loadPlayerState(userId: string): Promise<any> {
   return response.json()
 }
 
-export async function addToListeningHistory(userId: string, track: Track, playedDuration: number): Promise<void> {
+// -------------------- HISTORY --------------------
+
+export async function addToListeningHistory(
+  userId: string,
+  track: Track,
+  playedDuration: number
+): Promise<void> {
   const response = await apiFetch("/player/history", {
     method: "POST",
     headers: {
@@ -282,15 +323,79 @@ export async function clearListeningHistory(): Promise<void> {
   }
 }
 
+// -------------------- RANDOM --------------------
+
 export async function getRandomTracks(limit = 14): Promise<Track[]> {
   const params = new URLSearchParams({ limit: String(limit) })
   const response = await apiFetch(`/random?${params.toString()}`)
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
+    const body = await safeJson(response)
     throw new Error(body?.error || "Failed to get random tracks")
   }
 
-  const data = await response.json()
+  const data = await safeJson(response)
   return Array.isArray(data) ? data.map(normalizeTrack) : []
+}
+
+// -------------------- PLAYLISTS --------------------
+
+export async function getPlaylists(): Promise<Playlist[]> {
+  const response = await apiFetch("/playlists", { headers: authHeaders() })
+  if (!response.ok) throw await readError(response, "Failed to load playlists")
+  return response.json()
+}
+
+export async function createPlaylist(name: string): Promise<Playlist> {
+  const response = await apiFetch("/playlists", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ name }),
+  })
+  if (!response.ok) throw await readError(response, "Failed to create playlist")
+  return response.json()
+}
+
+export async function deletePlaylist(playlistId: string): Promise<void> {
+  const response = await apiFetch(`/playlists/${playlistId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  })
+  if (!response.ok) throw await readError(response, "Failed to delete playlist")
+}
+
+export async function addTrackToPlaylist(playlistId: string, track: Track): Promise<Playlist> {
+  const response = await apiFetch(`/playlists/${playlistId}/tracks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify(track),
+  })
+  if (!response.ok) throw await readError(response, "Failed to add track to playlist")
+  return response.json()
+}
+
+export async function removeTrackFromPlaylist(
+  playlistId: string,
+  source: string,
+  trackId: string,
+): Promise<Playlist> {
+  const response = await apiFetch(`/playlists/${playlistId}/tracks/${source}/${trackId}`, {
+    method: "DELETE",
+    headers: authHeaders(),
+  })
+  if (!response.ok) throw await readError(response, "Failed to remove track from playlist")
+  return response.json()
+}
+
+export async function syncLikedTrack(
+  track: Track,
+  action: "add" | "remove",
+): Promise<Playlist> {
+  const response = await apiFetch("/playlists/liked/sync", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ ...track, action }),
+  })
+  if (!response.ok) throw await readError(response, "Failed to sync liked track")
+  return response.json()
 }

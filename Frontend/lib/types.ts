@@ -41,3 +41,11 @@ export interface PlayerState {
   volume: number
   streamUrl: string
 }
+
+export interface Playlist {
+  id: string
+  name: string
+  isSystem: boolean
+  createdAt: string
+  tracks: Track[]
+}

@@ -8,7 +8,7 @@ Usage (from Backend folder):
 from sqlalchemy import create_engine, text
 
 from db import Base, build_database_url, engine
-from models import CustomBackground, ListeningHistory, PlayerState, User  # noqa: F401
+from models import CustomBackground, ListeningHistory, PlayerState, Playlist, PlaylistTrack, User  # noqa: F401
 
 
 def ensure_database_exists() -> None:

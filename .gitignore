@@ -56,3 +56,4 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+Backend/migrations/versions/d0b7727810d2_add_playlists_table.py

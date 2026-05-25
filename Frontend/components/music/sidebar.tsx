@@ -72,11 +72,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     >
       <div className="mb-3 hidden shrink-0 lg:flex lg:justify-center">
         <div className="flex h-12 w-12 items-center justify-center">
-          <img
-            src="/Icon/AuroraTune_icon_White2.png"
-            alt="AuroraTunes Logo"
-            className="h-full w-full object-contain invert saturate-0 opacity-90 transition-opacity hover:opacity-100"
-          />
+
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Unicode, UnicodeText, func
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, Unicode, UnicodeText, func
 from sqlalchemy.dialects.mssql import UNIQUEIDENTIFIER
 from sqlalchemy.orm import relationship
 
@@ -60,3 +60,37 @@ class PlayerState(Base):
     volume = Column(Float, nullable=False, default=0.7)
     playlist_json = Column(UnicodeText, nullable=True)
     updated_at = Column(DateTime, nullable=False, server_default=func.sysutcdatetime(), onupdate=func.sysutcdatetime())
+
+
+class Playlist(Base):
+    __tablename__ = "playlists"
+
+    id = Column(UNIQUEIDENTIFIER(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    user_id = Column(UNIQUEIDENTIFIER(as_uuid=False), ForeignKey("users.id"), nullable=False)
+    name = Column(Unicode(255), nullable=False)
+    is_system = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.sysutcdatetime())
+
+    tracks = relationship(
+        "PlaylistTrack",
+        back_populates="playlist",
+        cascade="all, delete-orphan",
+        order_by="PlaylistTrack.position",
+    )
+
+
+class PlaylistTrack(Base):
+    __tablename__ = "playlist_tracks"
+
+    id = Column(UNIQUEIDENTIFIER(as_uuid=False), primary_key=True, default=lambda: str(uuid4()))
+    playlist_id = Column(UNIQUEIDENTIFIER(as_uuid=False), ForeignKey("playlists.id"), nullable=False)
+    track_id = Column(Unicode(255), nullable=False)
+    source = Column(Unicode(50), nullable=False)
+    title = Column(Unicode(500), nullable=False)
+    channel = Column(Unicode(255), nullable=True)
+    thumbnail = Column(UnicodeText, nullable=True)
+    duration = Column(Unicode(20), nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+    added_at = Column(DateTime, nullable=False, server_default=func.sysutcdatetime())
+
+    playlist = relationship("Playlist", back_populates="tracks")
