@@ -1,80 +1,236 @@
 "use client"
 
-import { useState } from "react"
-import { AnimatePresence, motion } from "framer-motion"
+import { useState, useCallback } from "react"
+import { SearchBar, type SearchSource } from "./search-bar"
+import { TrackList } from "./track-list"
+import { SettingsPanel } from "./settings-panel"
+import { AuthPanel } from "./auth-panel"
+import { InfiniteTrackScroll } from "./infinite-track-scroll"
+import { NowPlayingPanel } from "./now-playing-panel"
+import { AiPanel } from "./ai-panel"
+import { PlaylistsPanel } from "./playlists-panel"
 import { Sidebar } from "./sidebar"
-import { MainContent } from "./main-content"
 import { PlayerBar } from "./player-bar"
 import { FullscreenPlayer } from "./fullscreen-player"
+import { useInfiniteTracks } from "@/hooks/use-infinite-tracks"
+import { useInfiniteSearch } from "@/hooks/use-infinite-search"
+import { usePlayer } from "@/lib/player-context"
 import { PlayerProvider } from "@/lib/player-context"
-import { BackgroundProvider, useBackground } from "@/lib/background-context"
+import { useBackground, BackgroundProvider } from "@/lib/background-context"
 import { AuthProvider } from "@/lib/auth-context"
+import { Toaster } from "sonner"
+import type { Track, ListeningHistoryItem } from "../../lib/types"
 
-function MusicPlayerInner() {
+interface MainContentProps { activeTab: string }
+
+function getHighResThumbnail(url?: string): string {
+  if (!url) return "https://via.placeholder.com/150"
+  if (url.includes("ytimg.com")) return url.replace("default.jpg", "hqdefault.jpg").replace("mqdefault.jpg", "hqdefault.jpg")
+  if (url.includes("sndcdn.com")) return url.replace("-large.jpg", "-t500x500.jpg").replace("-small.jpg", "-t500x500.jpg")
+  return url
+}
+
+function getTrackThumbnail(track: Track | null): string {
+  if (!track) return "https://via.placeholder.com/500x500/111827/e5e7eb?text=Music"
+  if (track.source === "youtube" && track.id) {
+    return `https://img.youtube.com/vi/${track.id}/hqdefault.jpg`
+  }
+  return getHighResThumbnail(track.thumbnail)
+}
+
+const PAGE = "h-full min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-white/[0.02] to-transparent px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
+
+export function MainContent({ activeTab }: MainContentProps) {
+  const {
+    currentTrack, isPlaying, progress, duration, volume, currentTime,
+    listeningHistory, likedTracks, togglePlay, nextTrack, prevTrack, setVolume, seek,
+    isShuffle, isRepeat, toggleShuffle, toggleRepeat, toggleLike, isLiked,
+  } = usePlayer()
+
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchSource, setSearchSource] = useState<SearchSource>("youtube")
+
+  const handleSearch = useCallback((q: string) => setSearchQuery(q), [])
+  const handleSourceChange = useCallback((s: SearchSource) => setSearchSource(s), [])
+
+  const homeTracks = useInfiniteTracks(activeTab === "home")
+  const radioTracks = useInfiniteTracks(activeTab === "radio")
+  const searchTracksState = useInfiniteSearch(activeTab === "search", searchQuery, searchSource)
+
+  if (activeTab === "settings") return <div className={PAGE}><SettingsPanel /></div>
+  if (activeTab === "ai") return <AiPanel />
+
+  if (activeTab === "profile") return (
+    <div className={PAGE}>
+      <h1 className="mb-6 text-3xl text-white">Особистий кабінет</h1>
+      <AuthPanel />
+    </div>
+  )
+
+  if (activeTab === "library") return (
+    <div className={PAGE}>
+      <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Бібліотека</h1>
+      <TrackList tracks={listeningHistory.map((item: ListeningHistoryItem) => item.track)} title="Нещодавно прослухані" />
+      {!listeningHistory.length && (
+        <div className="glass-panel mt-4 rounded-[24px] p-6 text-center sm:p-8">
+          <p className="text-lg font-medium text-white/40">Історія прослуховування пуста</p>
+        </div>
+      )}
+    </div>
+  )
+
+  if (activeTab === "liked") return (
+    <div className={PAGE}>
+      <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Вподобані</h1>
+      <TrackList tracks={likedTracks} title="Твої улюблені треки" />
+      {!likedTracks.length && (
+        <div className="glass-panel mt-4 rounded-[24px] p-6 text-center text-white/40">
+          Натисніть сердечко на головному екрані або в списку треків
+        </div>
+      )}
+    </div>
+  )
+
+  if (activeTab === "playlists") return (
+    <div className={PAGE}>
+      <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Плейлисти</h1>
+      <PlaylistsPanel />
+    </div>
+  )
+
+  if (activeTab === "radio") {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="shrink-0 px-4 pb-3 pt-5 sm:px-6 lg:px-8">
+          <h1 className="text-3xl font-bold text-white sm:text-4xl">Радіо</h1>
+          <p className="mt-1 text-sm text-white/45">Натисніть трек — далі гратиме випадково</p>
+        </div>
+        <InfiniteTrackScroll
+          enabled={activeTab === "radio"}
+          tracks={radioTracks.tracks}
+          loadMore={radioTracks.loadMore}
+          loadingMore={radioTracks.loadingMore}
+          hasMore={radioTracks.hasMore}
+          error={radioTracks.error}
+          title="Радіо-добірка"
+          playMode="radio"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 sm:px-6 lg:px-8"
+        />
+      </div>
+    )
+  }
+
+  if (activeTab === "home") {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-6">
+        <div className="content-shell flex h-full min-h-0 flex-col gap-4 overflow-hidden rounded-[32px] p-3 sm:p-4 xl:grid xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1fr)] xl:grid-rows-1">
+          <NowPlayingPanel
+            currentTrack={currentTrack}
+            isPlaying={isPlaying}
+            duration={duration}
+            currentTime={currentTime}
+            volume={volume}
+            isShuffle={isShuffle}
+            isRepeat={isRepeat}
+            thumbnailUrl={getTrackThumbnail(currentTrack)}
+            onTogglePlay={togglePlay}
+            onPrev={prevTrack}
+            onNext={nextTrack}
+            onSeek={seek}
+            onVolumeChange={setVolume}
+            onToggleShuffle={toggleShuffle}
+            onToggleRepeat={toggleRepeat}
+            isLiked={currentTrack ? isLiked(currentTrack) : false}
+            onToggleLike={currentTrack ? () => toggleLike(currentTrack) : undefined}
+          />
+
+          <section className="hero-panel flex min-h-[220px] flex-1 flex-col overflow-hidden rounded-[28px] xl:min-h-0">
+            <div className="flex shrink-0 items-center justify-between border-b border-white/8 px-6 pb-4 pt-5 lg:px-8">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/40">Queue</p>
+                <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">Плейлист</h2>
+              </div>
+            </div>
+            <InfiniteTrackScroll
+              enabled={activeTab === "home"}
+              tracks={homeTracks.tracks}
+              loadMore={homeTracks.loadMore}
+              loadingMore={homeTracks.loadingMore}
+              hasMore={homeTracks.hasMore}
+              error={homeTracks.error}
+              title="Рекомендації"
+            />
+          </section>
+        </div>
+      </div>
+    )
+  }
+
+  if (activeTab === "search") {
+    return (
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
+        <div className="shrink-0 px-4 pt-5 sm:px-6 lg:px-8">
+          <SearchBar onSearch={handleSearch} source={searchSource} onSourceChange={handleSourceChange} />
+        </div>
+        <InfiniteTrackScroll
+          enabled={searchQuery.trim().length >= 2}
+          tracks={searchTracksState.tracks}
+          loadMore={searchTracksState.loadMore}
+          loadingMore={searchTracksState.loadingMore}
+          hasMore={searchTracksState.hasMore}
+          error={searchTracksState.error || undefined}
+          title={searchQuery ? `Результати: "${searchQuery}"` : "Пошук музики"}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 lg:px-8"
+          emptyMessage={searchQuery.trim().length < 2 ? "Введіть запит (мінімум 2 символи)" : "Нічого не знайдено"}
+        />
+      </div>
+    )
+  }
+
+  return null
+}
+
+type ViewMode = "lyrics" | "minimal" | "circle"
+
+function MusicPlayerContent() {
   const [activeTab, setActiveTab] = useState("home")
   const [showFullscreen, setShowFullscreen] = useState(false)
-  const [viewMode, setViewMode] = useState<"lyrics" | "minimal" | "circle">("lyrics")
+  const [viewMode, setViewMode] = useState<ViewMode>("lyrics")
   const { backgroundUrl, brightness } = useBackground()
 
-  // Brightness logic:
-  // 100% (slider value) = original image (no changes) - default
-  // 0% = dark overlay
-  // The slider controls how much dark overlay is applied
-  // At 100% brightness = no overlay, at 0% = max overlay (0.8)
   const brightnessOverlay = Math.max(0, 0.5 - brightness / 200)
 
   return (
-    <div className="relative h-dvh min-h-0 w-full overflow-hidden bg-black selection:bg-white/20">
-      {/* Background Image - clean, no filters except user-controlled overlay */}
+    <div className="relative h-dvh w-full overflow-hidden bg-black selection:bg-white/20">
       <div
         className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: `url(${backgroundUrl})` }}
       />
-      
-      {/* Dark overlay - controlled by brightness slider */}
+
       {brightnessOverlay > 0 && (
         <div
-          className="absolute inset-0 z-[1] bg-black transition-opacity duration-300"
+          className="absolute inset-0 z-10 bg-black transition-opacity duration-300"
           style={{ opacity: brightnessOverlay }}
         />
       )}
 
-      {/* Main Content */}
-      <div className="relative z-10 flex h-full min-h-0 flex-col gap-2 p-2 sm:p-3">
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden lg:flex-row lg:gap-3">
-          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="relative z-20 flex h-full w-full flex-col overflow-hidden lg:flex-row">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-          <main className="glass-panel min-h-0 flex-1 overflow-hidden rounded-2xl">
-            <MainContent activeTab={activeTab} />
-          </main>
-        </div>
+        <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <MainContent activeTab={activeTab} />
 
-        <AnimatePresence initial={false}>
-          {activeTab !== "home" && (
-            <motion.footer
-              key="player-footer"
-              initial={{ opacity: 0, y: 56, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 28, scale: 0.99 }}
-              transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              className="glass-panel overflow-hidden rounded-2xl"
-            >
-              <PlayerBar onExpandClick={() => setShowFullscreen(true)} />
-            </motion.footer>
-          )}
-        </AnimatePresence>
-      </div>
+          <PlayerBar onExpandClick={() => setShowFullscreen(true)} />
+        </main>
 
-      {/* Fullscreen Player */}
-      {showFullscreen && (
-        <div className="fixed inset-0 z-[100] animate-in fade-in zoom-in-95 duration-300">
+        {showFullscreen && (
           <FullscreenPlayer
             onClose={() => setShowFullscreen(false)}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
@@ -82,11 +238,12 @@ function MusicPlayerInner() {
 export function MusicPlayer() {
   return (
     <AuthProvider>
-      <BackgroundProvider>
-        <PlayerProvider>
-          <MusicPlayerInner />
-        </PlayerProvider>
-      </BackgroundProvider>
+      <PlayerProvider>
+        <BackgroundProvider>
+          <MusicPlayerContent />
+          <Toaster richColors position="bottom-center" />
+        </BackgroundProvider>
+      </PlayerProvider>
     </AuthProvider>
   )
 }

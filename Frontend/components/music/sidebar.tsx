@@ -11,8 +11,8 @@ interface SidebarProps {
 const navItems = [
   { id: "home", icon: Home, label: "Головна" },
   { id: "search", icon: Search, label: "Пошук" },
+  //{ id: "liked", icon: Heart, label: "Улюблене" },
   { id: "library", icon: LibraryBig, label: "Бібліотека" },
-  { id: "liked", icon: Heart, label: "Вподобані" },
   { id: "playlists", icon: ListMusic, label: "Плейлисти" },
   { id: "radio", icon: Radio, label: "Радіо" },
   { id: "ai", icon: Sparkles, label: "AI" },

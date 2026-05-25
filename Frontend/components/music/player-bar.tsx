@@ -1,6 +1,7 @@
 "use client"
 
 import { usePlayer } from "@/lib/player-context"
+import { useState, useEffect} from "react"
 import { 
   Play, Pause, SkipBack, SkipForward, 
   Volume2, VolumeX, Repeat, Shuffle,
@@ -46,12 +47,18 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
     addTrackToPlaylist,
   } = usePlayer()
   const { user } = useAuth()
+  const [isMounted, setIsMounted] = useState(false)
 
   const liked = currentTrack ? isLiked(currentTrack) : false
 
   const handleSeek = useCallback((value: number[]) => {
     if (duration) seek((value[0] / 100) * duration)
   }, [duration, seek])
+
+useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
 
   const handleVolumeChange = useCallback((value: number[]) => {
     setVolume(value[0] / 100)
@@ -211,8 +218,7 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={togglePlay}
-              className="flex items-center justify-center w-9 h-9 rounded-2xl bg-gradient-to-br from-white/90 to-white/70 text-black shadow-lg shadow-black/20 hover:shadow-xl hover:shadow-black/30 transition-all duration-200"
-            >
+              className="flex items-center justify-center w-9 h-9 rounded-2xl bg-white/10 text-white shadow-lg hover:bg-white/20 transition-all duration-200"            >
               <AnimatePresence mode="wait" initial={false}>
                 {isPlaying ? (
                   <motion.div
@@ -294,7 +300,7 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => currentTrack && toggleLike(currentTrack)}
-            disabled={!currentTrack}
+            disabled={isMounted ? !currentTrack : undefined}
             title={liked ? "Прибрати з вподобаних" : "Додати до вподобаних"}
             className={cn(
               "flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200",
@@ -312,12 +318,12 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
             onClick={handleAddToLibrary}
-            disabled={!currentTrack}
+            disabled={isMounted ? !currentTrack : undefined}
             title="Додати до плейлиста"
             className={cn(
               "flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200",
               !currentTrack ? "opacity-30 cursor-not-allowed" : "",
-              "text-white/35 hover:text-violet-300 hover:bg-white/5"
+              "text-white/35 hover:text-wite-300 hover:bg-white/5"
             )}
           >
             <BookmarkPlus className="w-3.5 h-3.5" />

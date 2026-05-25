@@ -1,184 +1,219 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { SearchBar, type SearchSource } from "./search-bar"
-import { TrackList } from "./track-list"
-import { SettingsPanel } from "./settings-panel"
-import { AuthPanel } from "./auth-panel"
-import { InfiniteTrackScroll } from "./infinite-track-scroll"
-import { NowPlayingPanel } from "./now-playing-panel"
-import { AiPanel } from "./ai-panel"
-import { PlaylistsPanel } from "./playlists-panel"
-import { useInfiniteTracks } from "@/hooks/use-infinite-tracks"
-import { useInfiniteSearch } from "@/hooks/use-infinite-search"
-import { usePlayer } from "@/lib/player-context"
-import type { Track, ListeningHistoryItem } from "../../lib/types"
+import { useState } from "react"
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Heart, Volume2, VolumeX, Volume1 } from "lucide-react"
+import { Slider } from "@/components/ui/slider"
+import { cn } from "@/lib/utils"
 
-interface MainContentProps { activeTab: string }
-
-function getHighResThumbnail(url?: string): string {
-  if (!url) return "https://via.placeholder.com/150"
-  if (url.includes("ytimg.com")) return url.replace("default.jpg", "hqdefault.jpg").replace("mqdefault.jpg", "hqdefault.jpg")
-  if (url.includes("sndcdn.com")) return url.replace("-large.jpg", "-t500x500.jpg").replace("-small.jpg", "-t500x500.jpg")
-  return url
+interface Track {
+  id: string
+  title: string
+  artist: string
+  thumbnail?: string
+  duration?: number
 }
 
-function getTrackThumbnail(track: Track | null): string {
-  if (!track) return "https://via.placeholder.com/500x500/111827/e5e7eb?text=Music"
-  if (track.source === "youtube" && track.id) {
-    return `https://img.youtube.com/vi/${track.id}/hqdefault.jpg`
+interface NowPlayingPanelProps {
+  currentTrack: Track | null
+  isPlaying: boolean
+  duration: number
+  currentTime: number
+  volume: number
+  isShuffle: boolean
+  isRepeat: boolean
+  thumbnailUrl: string
+  isLiked: boolean
+  onTogglePlay: () => void
+  onPrev: () => void
+  onNext: () => void
+  onSeek: (time: number) => void
+  onVolumeChange: (volume: number) => void
+  onToggleShuffle: () => void
+  onToggleRepeat: () => void
+  onToggleLike?: () => void
+}
+
+function formatTime(seconds: number): string {
+  if (!seconds || isNaN(seconds)) return "0:00"
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
+function VolumeIcon({ volume, muted }: { volume: number; muted: boolean }) {
+  if (muted || volume === 0) return <VolumeX className="size-5" />
+  if (volume < 0.5) return <Volume1 className="size-5" />
+  return <Volume2 className="size-5" />
+}
+
+export function NowPlayingPanel({
+  currentTrack,
+  isPlaying,
+  duration,
+  currentTime,
+  volume,
+  isShuffle,
+  isRepeat,
+  thumbnailUrl,
+  isLiked,
+  onTogglePlay,
+  onPrev,
+  onNext,
+  onSeek,
+  onVolumeChange,
+  onToggleShuffle,
+  onToggleRepeat,
+  onToggleLike,
+}: NowPlayingPanelProps) {
+  const [isMuted, setIsMuted] = useState(false)
+  const [prevVolume, setPrevVolume] = useState(volume)
+
+  const handleVolumeToggle = () => {
+    if (isMuted) {
+      onVolumeChange(prevVolume || 0.5)
+      setIsMuted(false)
+    } else {
+      setPrevVolume(volume)
+      onVolumeChange(0)
+      setIsMuted(true)
+    }
   }
-  return getHighResThumbnail(track.thumbnail)
-}
 
-const PAGE = "h-full min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-white/[0.02] to-transparent px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8"
+  const handleVolumeSlider = (value: number[]) => {
+    const newVolume = value[0]
+    onVolumeChange(newVolume)
+    if (newVolume > 0) setIsMuted(false)
+  }
 
-export function MainContent({ activeTab }: MainContentProps) {
-  const {
-    currentTrack, isPlaying, progress, duration, volume, currentTime,
-    listeningHistory, likedTracks, togglePlay, nextTrack, prevTrack, setVolume, seek,
-    isShuffle, isRepeat, toggleShuffle, toggleRepeat, toggleLike, isLiked,
-  } = usePlayer()
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
 
-  const [searchQuery, setSearchQuery] = useState("")
-  const [searchSource, setSearchSource] = useState<SearchSource>("youtube")
-
-  const handleSearch = useCallback((q: string) => setSearchQuery(q), [])
-  const handleSourceChange = useCallback((s: SearchSource) => setSearchSource(s), [])
-
-  const homeTracks = useInfiniteTracks(activeTab === "home")
-  const radioTracks = useInfiniteTracks(activeTab === "radio")
-  const searchTracksState = useInfiniteSearch(activeTab === "search", searchQuery, searchSource)
-
-  if (activeTab === "settings") return <div className={PAGE}><SettingsPanel /></div>
-  if (activeTab === "ai") return <AiPanel />
-
-  if (activeTab === "profile") return (
-    <div className={PAGE}>
-      <h1 className="mb-6 text-3xl text-white">Особистий кабінет</h1>
-      <AuthPanel />
-    </div>
-  )
-
-  if (activeTab === "library") return (
-    <div className={PAGE}>
-      <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Бібліотека</h1>
-      <TrackList tracks={listeningHistory.map((item: ListeningHistoryItem) => item.track)} title="Нещодавно прослухані" />
-      {!listeningHistory.length && (
-        <div className="glass-panel mt-4 rounded-[24px] p-6 text-center sm:p-8">
-          <p className="text-lg font-medium text-white/40">Історія прослуховування пуста</p>
-        </div>
-      )}
-    </div>
-  )
-
-  if (activeTab === "liked") return (
-    <div className={PAGE}>
-      <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Вподобані</h1>
-      <TrackList tracks={likedTracks} title="Твої улюблені треки" />
-      {!likedTracks.length && (
-        <div className="glass-panel mt-4 rounded-[24px] p-6 text-center text-white/40">
-          Натисніть сердечко на головному екрані або в списку треків
-        </div>
-      )}
-    </div>
-  )
-
-  if (activeTab === "playlists") return (
-    <div className={PAGE}>
-      <h1 className="mb-6 text-3xl font-bold text-white sm:text-4xl">Плейлисти</h1>
-      <PlaylistsPanel />
-    </div>
-  )
-
-  if (activeTab === "radio") {
-    return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="shrink-0 px-4 pb-3 pt-5 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-white sm:text-4xl">Радіо</h1>
-          <p className="mt-1 text-sm text-white/45">Натисніть трек — далі гратиме випадково</p>
-        </div>
-        <InfiniteTrackScroll
-          enabled={activeTab === "radio"}
-          tracks={radioTracks.tracks}
-          loadMore={radioTracks.loadMore}
-          loadingMore={radioTracks.loadingMore}
-          hasMore={radioTracks.hasMore}
-          error={radioTracks.error}
-          title="Радіо-добірка"
-          playMode="radio"
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 sm:px-6 lg:px-8"
+  return (
+    <div className="glass-panel player-glow flex h-full flex-col rounded-3xl p-6 lg:p-8">
+      {/* Album Art */}
+      <div className="relative mb-6 aspect-square w-full overflow-hidden rounded-2xl bg-secondary/50">
+        <img
+          src={thumbnailUrl}
+          alt={currentTrack?.title || "Album art"}
+          className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+          crossOrigin="anonymous"
         />
+        {/* Reflection effect */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/5" />
       </div>
-    )
-  }
 
-  if (activeTab === "home") {
-    return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden px-4 py-4 sm:px-6 sm:py-6">
-        <div className="content-shell flex h-full min-h-0 flex-col gap-4 overflow-hidden rounded-[32px] p-3 sm:p-4 xl:grid xl:grid-cols-[minmax(300px,0.42fr)_minmax(0,1fr)] xl:grid-rows-1">
-          <NowPlayingPanel
-            currentTrack={currentTrack}
-            isPlaying={isPlaying}
-            duration={duration}
-            currentTime={currentTime}
-            volume={volume}
-            isShuffle={isShuffle}
-            isRepeat={isRepeat}
-            thumbnailUrl={getTrackThumbnail(currentTrack)}
-            onTogglePlay={togglePlay}
-            onPrev={prevTrack}
-            onNext={nextTrack}
-            onSeek={seek}
-            onVolumeChange={setVolume}
-            onToggleShuffle={toggleShuffle}
-            onToggleRepeat={toggleRepeat}
-            isLiked={currentTrack ? isLiked(currentTrack) : false}
-            onToggleLike={currentTrack ? () => toggleLike(currentTrack) : undefined}
+      {/* Track Info */}
+      <div className="mb-6 min-h-[4rem] text-center">
+        <h2 className="mb-1 truncate text-xl font-bold text-foreground lg:text-2xl">
+          {currentTrack?.title || "Немає треку"}
+        </h2>
+        <p className="truncate text-sm text-muted-foreground lg:text-base">
+          {currentTrack?.artist || "Виберіть пісню"}
+        </p>
+      </div>
+
+      {/* Progress Slider */}
+      <div className="mb-4 space-y-2">
+        <Slider
+          value={[currentTime]}
+          min={0}
+          max={duration || 100}
+          step={1}
+          onValueChange={(value) => onSeek(value[0])}
+          className="cursor-pointer"
+        />
+        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <span className="tabular-nums">{formatTime(currentTime)}</span>
+          <span className="tabular-nums">-{formatTime(Math.max(0, duration - currentTime))}</span>
+        </div>
+      </div>
+
+      {/* Playback Controls */}
+      <div className="mb-6 flex items-center justify-center gap-3">
+        <button
+          onClick={onToggleShuffle}
+          className={cn(
+            "glass-button rounded-full p-2.5 transition-all",
+            isShuffle ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label="Shuffle"
+        >
+          <Shuffle className="size-4" />
+        </button>
+
+        <button
+          onClick={onPrev}
+          className="glass-button rounded-full p-3 text-foreground transition-all hover:scale-105"
+          aria-label="Previous track"
+        >
+          <SkipBack className="size-5" fill="currentColor" />
+        </button>
+
+        <button
+          onClick={onTogglePlay}
+          className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary/40 active:scale-95 lg:size-16"
+          aria-label={isPlaying ? "Pause" : "Play"}
+        >
+          {isPlaying ? (
+            <Pause className="size-6 lg:size-7" fill="currentColor" />
+          ) : (
+            <Play className="size-6 translate-x-0.5 lg:size-7" fill="currentColor" />
+          )}
+        </button>
+
+        <button
+          onClick={onNext}
+          className="glass-button rounded-full p-3 text-foreground transition-all hover:scale-105"
+          aria-label="Next track"
+        >
+          <SkipForward className="size-5" fill="currentColor" />
+        </button>
+
+        <button
+          onClick={onToggleRepeat}
+          className={cn(
+            "glass-button rounded-full p-2.5 transition-all",
+            isRepeat ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label="Repeat"
+        >
+          <Repeat className="size-4" />
+        </button>
+      </div>
+
+      {/* Volume & Like */}
+      <div className="mt-auto flex items-center gap-4">
+        <button
+          onClick={onToggleLike}
+          className={cn(
+            "rounded-full p-2 transition-all",
+            isLiked ? "text-red-500" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label={isLiked ? "Unlike" : "Like"}
+        >
+          <Heart className={cn("size-5", isLiked && "fill-current")} />
+        </button>
+
+        <div className="flex flex-1 items-center gap-3">
+          <button
+            onClick={handleVolumeToggle}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={isMuted ? "Unmute" : "Mute"}
+          >
+            <VolumeIcon volume={volume} muted={isMuted} />
+          </button>
+          <Slider
+            value={[isMuted ? 0 : volume]}
+            min={0}
+            max={1}
+            step={0.01}
+            onValueChange={handleVolumeSlider}
+            className="flex-1 cursor-pointer"
           />
-
-          <section className="hero-panel flex min-h-[220px] flex-1 flex-col overflow-hidden rounded-[28px] xl:min-h-0">
-            <div className="flex shrink-0 items-center justify-between border-b border-white/8 px-6 pb-4 pt-5 lg:px-8">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/40">Queue</p>
-                <h2 className="mt-1 text-xl font-bold text-white sm:text-2xl">Плейлист</h2>
-              </div>
-            </div>
-            <InfiniteTrackScroll
-              enabled={activeTab === "home"}
-              tracks={homeTracks.tracks}
-              loadMore={homeTracks.loadMore}
-              loadingMore={homeTracks.loadingMore}
-              hasMore={homeTracks.hasMore}
-              error={homeTracks.error}
-              title="Рекомендації"
-            />
-          </section>
+          <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+            {Math.round((isMuted ? 0 : volume) * 100)}
+          </span>
         </div>
       </div>
-    )
-  }
-
-  if (activeTab === "search") {
-    return (
-      <div className="flex h-full min-h-0 flex-col overflow-hidden">
-        <div className="shrink-0 px-4 pt-5 sm:px-6 lg:px-8">
-          <SearchBar onSearch={handleSearch} source={searchSource} onSourceChange={handleSourceChange} />
-        </div>
-        <InfiniteTrackScroll
-          enabled={searchQuery.trim().length >= 2}
-          tracks={searchTracksState.tracks}
-          loadMore={searchTracksState.loadMore}
-          loadingMore={searchTracksState.loadingMore}
-          hasMore={searchTracksState.hasMore}
-          error={searchTracksState.error || undefined}
-          title={searchQuery ? `Результати: "${searchQuery}"` : "Пошук музики"}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6 lg:px-8"
-          emptyMessage={searchQuery.trim().length < 2 ? "Введіть запит (мінімум 2 символи)" : "Нічого не знайдено"}
-        />
-      </div>
-    )
-  }
-
-  return null
+    </div>
+  )
 }
