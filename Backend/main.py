@@ -42,7 +42,15 @@ app = Flask(__name__)
 app.logger.setLevel(logging.DEBUG)
 CORS(
     app,
-    resources={r"/*": {"origins": ["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:5000", "http://127.0.0.1:5000"]}},
+    resources={
+        r"/*": {
+            "origins": [
+                r"http://localhost:\d+",
+                r"http://127\.0\.0\.1:\d+",
+                "null",
+            ]
+        }
+    },
     supports_credentials=True,
 )
 
@@ -51,9 +59,14 @@ JWT_ALGORITHM = "HS256"
 
 DATA_DIR = base_dir / "data"
 PLAYER_DATA_PATH = DATA_DIR / "player_data.json"
+STREAM_CACHE_PATH = DATA_DIR / "stream_cache.json"
+STREAM_CACHE_TTL = 86400  # 24 hours
 
 youtube_provider = YouTubeProvider()
 soundcloud_provider = SoundCloudProvider()
+
+# Global stream cache (in-memory)
+stream_cache: dict[str, tuple[str, float]] = {}  # key -> (url, expiry_time)
 
 print(f"[INIT] SOUNDCLOUD_CLIENT_ID loaded: {bool(soundcloud_provider.client_id)}", flush=True)
 print(f"[INIT] client_id value: {soundcloud_provider.client_id!r}", flush=True)
@@ -81,6 +94,61 @@ def write_player_data(data: dict) -> None:
         json.dumps(data, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+
+
+def load_stream_cache() -> dict[str, tuple[str, float]]:
+    """Load stream cache from disk"""
+    if not STREAM_CACHE_PATH.exists():
+        return {}
+    try:
+        data = json.loads(STREAM_CACHE_PATH.read_text(encoding="utf-8"))
+        # Filter out expired entries
+        now = datetime.now(timezone.utc).timestamp()
+        return {k: v for k, v in data.items() if isinstance(v, (list, tuple)) and len(v) == 2 and v[1] > now}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_stream_cache() -> None:
+    """Save stream cache to disk"""
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    now = datetime.now(timezone.utc).timestamp()
+    # Filter out expired entries
+    valid_cache = {k: v for k, v in stream_cache.items() if v[1] > now}
+    STREAM_CACHE_PATH.write_text(
+        json.dumps(valid_cache, indent=2),
+        encoding="utf-8",
+    )
+
+
+def get_cached_stream_url(source: str, track_id: str) -> str | None:
+    """Get cached stream URL if valid"""
+    key = f"{source}:{track_id}"
+    if key in stream_cache:
+        url, expiry = stream_cache[key]
+        if expiry > datetime.now(timezone.utc).timestamp():
+            app.logger.debug(f"Stream cache hit for {key}")
+            return url
+        else:
+            del stream_cache[key]
+    return None
+
+
+def cache_stream_url(source: str, track_id: str, url: str) -> None:
+    """Cache stream URL with TTL"""
+    key = f"{source}:{track_id}"
+    expiry = datetime.now(timezone.utc).timestamp() + STREAM_CACHE_TTL
+    stream_cache[key] = (url, expiry)
+    app.logger.debug(f"Cached stream URL for {key}")
+    # Async save to avoid blocking
+    try:
+        save_stream_cache()
+    except Exception as e:
+        app.logger.warning(f"Failed to save stream cache: {e}")
+
+
+# Load cache on startup
+stream_cache.update(load_stream_cache())
 
 
 def get_user_id() -> str:
@@ -323,17 +391,27 @@ def search():
 
 
 def resolve_stream_url(source: str, track_id: str) -> str | None:
+    # Check cache first
+    cached_url = get_cached_stream_url(source, track_id)
+    if cached_url:
+        return cached_url
+
+    url = None
     if source == "soundcloud":
         if not soundcloud_provider.is_enabled():
             return None
-        return soundcloud_provider.get_stream_url(track_id)
+        url = soundcloud_provider.get_stream_url(track_id)
 
-    if source == "youtube":
+    elif source == "youtube":
         if not YT_DLP_AVAILABLE:
             return None
-        return youtube_provider.get_stream_url(track_id)
+        url = youtube_provider.get_stream_url(track_id)
 
-    return None
+    # Cache the result if successful
+    if url:
+        cache_stream_url(source, track_id, url)
+
+    return url
 
 
 @app.route("/audio/<source>/<track_id>", methods=["GET"])
@@ -370,6 +448,8 @@ def proxy_audio(source: str, track_id: str):
     }
     pass_headers["Accept-Ranges"] = "bytes"
     pass_headers["Access-Control-Expose-Headers"] = "Content-Length, Content-Range, Accept-Ranges"
+    if "Content-Type" not in pass_headers:
+        pass_headers["Content-Type"] = "audio/mpeg"
 
     def generate():
         try:
@@ -782,5 +862,6 @@ def sync_liked_track():
 
 
 if __name__ == "__main__":
+    port = int(os.getenv("FLASK_PORT", "5050"))
     print("AuroraTunes backend started", flush=True)
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    app.run(debug=True, port=port, host="0.0.0.0")

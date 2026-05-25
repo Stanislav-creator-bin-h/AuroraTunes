@@ -1,9 +1,13 @@
 import os
 from contextlib import contextmanager
+from pathlib import Path
 from urllib.parse import quote_plus
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
+
+load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 
 def build_database_url(

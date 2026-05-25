@@ -125,12 +125,57 @@ export function getAudioPlaybackUrl(track: Track): string {
   return apiUrl(`/audio/${source}/${id}`)
 }
 
+export async function assertAudioPlaybackAvailable(track: Track): Promise<string> {
+  const url = getAudioPlaybackUrl(track)
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: { Range: "bytes=0-1" },
+  })
+
+  if (!response.ok) {
+    const data = await safeJson(response)
+    throw new Error(data?.error || `Audio stream unavailable (HTTP ${response.status})`)
+  }
+
+  const contentType = response.headers.get("Content-Type") || ""
+  if (contentType && !contentType.toLowerCase().startsWith("audio/")) {
+    throw new Error(`Unsupported audio response: ${contentType}`)
+  }
+
+  // Cache the URL for 24 hours
+  const cacheKey = `stream_url:${track.source}:${track.id}`
+  const expiry = Date.now() + 24 * 60 * 60 * 1000
+  try {
+    localStorage.setItem(cacheKey, JSON.stringify({ url, expiry }))
+  } catch (e) {
+    // Storage might be full, just continue
+    console.warn("Failed to cache stream URL:", e)
+  }
+
+  return url
+}
+
 export async function getStreamUrl(track: Track): Promise<string> {
   if (!track?.id) {
     throw new Error("ID треку відсутній")
   }
 
-  return getAudioPlaybackUrl(track)
+  // Check client-side cache first (faster than network)
+  const cacheKey = `stream_url:${track.source}:${track.id}`
+  const cached = localStorage.getItem(cacheKey)
+  if (cached) {
+    try {
+      const { url, expiry } = JSON.parse(cached)
+      if (expiry > Date.now()) {
+        return url
+      }
+      localStorage.removeItem(cacheKey)
+    } catch (e) {
+      localStorage.removeItem(cacheKey)
+    }
+  }
+
+  return assertAudioPlaybackAvailable(track)
 }
 
 // -------------------- AUTH --------------------
