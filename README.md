@@ -1,6 +1,6 @@
 # AuroraTunes 1.2 (BETA)
 
-## Швидкий старт (для нового розробника)
+## Швидкий старт
 
 ### 1. SQL Server (Docker)
 
@@ -20,11 +20,11 @@ docker run -d --name auroratunes-mssql \
 ```bash
 cd Backend
 python -m venv .venv
-.venv\Scripts\activate          # Windows
+.venv\Scripts\activate
 pip install -r requirements.txt
-copy .env.example .env          # відредагуйте ключі API
-python init_db.py               # створить БД і таблиці
-python main.py                  # http://127.0.0.1:5000
+copy .env.example .env
+python init_db.py
+python main.py                  # http://127.0.0.1:5050
 ```
 
 ### 3. Frontend
@@ -35,7 +35,7 @@ npm install
 npm run dev                     # http://localhost:3000
 ```
 
-У dev-режимі запити йдуть через проксі `/api` → backend (див. `next.config.mjs`).
+У dev-режимі запити йдуть через проксі `/api` до backend на порту `5050`.
 
 ### 4. Electron (опційно)
 
@@ -48,11 +48,11 @@ npm start
 ## Змінні середовища
 
 | Файл | Опис |
-|------|------|
-| `Backend/.env` | `MSSQL_*`, `YOUTUBE_API_KEY`, `SOUNDCLOUD_CLIENT_ID`, `JWT_SECRET` |
-| `Frontend/.env.local` | `NEXT_PUBLIC_BACKEND_BASE_URL=http://127.0.0.1:5000` (лише для static/Electron) |
+| --- | --- |
+| `Backend/.env` | `MSSQL_*`, `YOUTUBE_API_KEY`, `SOUNDCLOUD_CLIENT_ID`, `JWT_SECRET`, `FLASK_PORT` |
+| `Frontend/.env.local` | `NEXT_PUBLIC_BACKEND_BASE_URL=http://127.0.0.1:5050` для static/Electron |
 
 ## Перевірка
 
-- Backend: http://127.0.0.1:5000/health
-- Frontend: головна → плейлист скролиться вниз і підвантажує треки
+- Backend: http://127.0.0.1:5050/health
+- Frontend: http://127.0.0.1:3000

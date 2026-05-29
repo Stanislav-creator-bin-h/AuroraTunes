@@ -4,18 +4,20 @@ import { usePlayer } from "@/lib/player-context"
 import { 
   Play, Pause, SkipBack, SkipForward, 
   Volume2, VolumeX, Repeat, Shuffle,
-  Maximize2, ListMusic, Heart
+  Maximize2, ListMusic, Heart, BookmarkPlus
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useState, useCallback } from "react"
+import { useCallback } from "react"
 import { Slider } from "@/components/ui/slider"
 import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from "@/lib/auth-context"
 
 interface PlayerBarProps {
   onExpandClick: () => void
 }
 
 function formatTime(seconds: number): string {
+  if (!seconds || isNaN(seconds)) return "0:00"
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, "0")}`
@@ -37,10 +39,15 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
     isShuffle,
     isRepeat,
     toggleShuffle,
-    toggleRepeat
+    toggleRepeat,
+    toggleLike,
+    isLiked,
+    playlists,
+    addTrackToPlaylist,
   } = usePlayer()
+  const { user } = useAuth()
 
-  const [isLiked, setIsLiked] = useState(false)
+  const liked = currentTrack ? isLiked(currentTrack) : false
 
   const handleSeek = useCallback((value: number[]) => {
     if (duration) seek((value[0] / 100) * duration)
@@ -50,23 +57,43 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
     setVolume(value[0] / 100)
   }, [setVolume])
 
+  const handleAddToLibrary = useCallback(async () => {
+    if (!currentTrack || !user) {
+      const { toast } = await import("sonner")
+      if (!user) toast.error("Увійдіть, щоб зберігати треки")
+      return
+    }
+    // Add to first non-system playlist or show prompt
+    const userPlaylists = playlists.filter(p => !p.isSystem)
+    if (userPlaylists.length === 0) {
+      const { toast } = await import("sonner")
+      toast.error("Спочатку створіть плейлист")
+      return
+    }
+    try {
+      await addTrackToPlaylist(userPlaylists[0].id, currentTrack)
+      const { toast } = await import("sonner")
+      toast.success(`Додано до «${userPlaylists[0].name}»`)
+    } catch {
+      const { toast } = await import("sonner")
+      toast.error("Не вдалося додати до плейлиста")
+    }
+  }, [currentTrack, user, playlists, addTrackToPlaylist])
+
   return (
     <>
-      {/* Background gradient layer - elegant blur */}
-      
       <motion.div
-  initial={{ y: 100, opacity: 0 }}
-  animate={{ y: 0, opacity: 1 }}
-  exit={{ y: 100, opacity: 0 }}
-  transition={{ 
-    type: "spring",
-    stiffness: 200,
-    damping: 25,
-    mass: 0.8
-  }}
-  /* Додано клас player-bar */
-  className="relative flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 min-h-[72px] player-bar"
->
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 100, opacity: 0 }}
+        transition={{ 
+          type: "spring",
+          stiffness: 200,
+          damping: 25,
+          mass: 0.8
+        }}
+        className="relative flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5 sm:py-3 min-h-[72px] player-bar"
+      >
         
         {/* Track Info - Left */}
         <motion.div 
@@ -150,7 +177,7 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
 
         {/* Center Controls - Compact */}
         <motion.div 
-          className="flex flex-col items-center gap-1.5 flex-1 max-w-[280px]"
+          className="flex flex-col items-center gap-1.5 flex-1 max-w-[320px]"
           initial={{ opacity: 0, y: 5 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -235,73 +262,98 @@ export function PlayerBar({ onExpandClick }: PlayerBarProps) {
             </motion.button>
           </div>
 
-          {/* Progress Bar - Minimal */}
-          <div className="w-full flex items-center gap-2.5 px-1">
-            <span className="text-[9px] font-medium text-white/30 tabular-nums w-8 text-right flex-shrink-0">
+          {/* Progress Bar with time labels */}
+          <div className="w-full flex items-center gap-2 px-1">
+            <span className="text-[9px] font-medium text-white/40 tabular-nums w-8 text-right flex-shrink-0">
               {formatTime(currentTime)}
             </span>
-            <Slider
-              value={[progress * 100]}
-              max={100}
-              step={0.1}
-              onValueChange={handleSeek}
-              className="flex-1"
-            />
-            <span className="text-[9px] font-medium text-white/30 tabular-nums w-8 flex-shrink-0">
+            <div className="flex-1 group/seek cursor-pointer">
+              <Slider
+                value={[progress * 100]}
+                max={100}
+                step={0.1}
+                onValueChange={handleSeek}
+                className="flex-1"
+              />
+            </div>
+            <span className="text-[9px] font-medium text-white/40 tabular-nums w-8 flex-shrink-0">
               {formatTime(duration)}
             </span>
           </div>
         </motion.div>
 
-        {/* Right Actions - Hidden on mobile, visible on lg+ */}
+        {/* Right Actions */}
         <motion.div 
           className="hidden lg:flex items-center gap-1.5"
           initial={{ opacity: 0, x: 10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.15 }}
         >
+          {/* Like button */}
           <motion.button
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.92 }}
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={() => currentTrack && toggleLike(currentTrack)}
+            disabled={!currentTrack}
+            title={liked ? "Прибрати з вподобаних" : "Додати до вподобаних"}
             className={cn(
               "flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200",
-              isLiked 
-                ? "text-white bg-red-500/20" 
-                : "text-white/35 hover:text-white/60 hover:bg-white/5"
+              !currentTrack ? "opacity-30 cursor-not-allowed" : "",
+              liked 
+                ? "text-red-400 bg-red-500/15" 
+                : "text-white/35 hover:text-red-300 hover:bg-white/5"
             )}
           >
-            <Heart className={cn("w-3.5 h-3.5", isLiked && "fill-current")} />
+            <Heart className={cn("w-3.5 h-3.5 transition-all", liked && "fill-current")} />
+          </motion.button>
+
+          {/* Add to library button */}
+          <motion.button
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={handleAddToLibrary}
+            disabled={!currentTrack}
+            title="Додати до плейлиста"
+            className={cn(
+              "flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200",
+              !currentTrack ? "opacity-30 cursor-not-allowed" : "",
+              "text-white/35 hover:text-violet-300 hover:bg-white/5"
+            )}
+          >
+            <BookmarkPlus className="w-3.5 h-3.5" />
           </motion.button>
           
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className="w-px h-5 bg-white/10 mx-0.5" />
           
+          {/* Volume control */}
           <div className="flex items-center gap-1.5">
             <motion.button
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
               onClick={() => setVolume(volume === 0 ? 0.7 : 0)}
+              title={volume === 0 ? "Увімкнути звук" : "Вимкнути звук"}
               className="flex items-center justify-center w-7 h-7 rounded-lg text-white/40 hover:text-white/70 hover:bg-white/5 transition-all duration-200"
             >
               {volume === 0 ? (
                 <VolumeX className="w-3.5 h-3.5" />
-              ) : volume < 0.5 ? (
-                <Volume2 className="w-3.5 h-3.5" />
               ) : (
                 <Volume2 className="w-3.5 h-3.5" />
               )}
             </motion.button>
-            <div className="w-14">
+            <div className="w-16 flex items-center gap-1">
               <Slider
                 value={[volume * 100]}
                 max={100}
                 onValueChange={handleVolumeChange}
-                className="cursor-pointer"
+                className="cursor-pointer w-full"
               />
             </div>
+            <span className="text-[9px] font-medium text-white/30 tabular-nums w-6">
+              {Math.round(volume * 100)}
+            </span>
           </div>
           
-          <div className="w-px h-5 bg-white/10 mx-1" />   
+          <div className="w-px h-5 bg-white/10 mx-0.5" />   
         </motion.div>
       </motion.div>
     </>

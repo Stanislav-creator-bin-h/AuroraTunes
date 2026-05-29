@@ -98,28 +98,40 @@ class YouTubeProvider(BaseProvider):
         if not YT_DLP_AVAILABLE or yt_dlp is None:
             return None
 
+        # Optimized for speed: fetch best audio URL quickly
         ydl_opts = {
             "format": "bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio/best",
             "quiet": True,
             "no_warnings": True,
+            "socket_timeout": 10,  # Reduce timeout to 10s
+            "socket_local_addr": None,
             "extract_flat": False,
             "noplaylist": True,
+            "skip_unavailable_fragments": True,
+            "fragment_retries": 2,  # Reduce retries for speed
         }
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                # Extract info with timeout
                 info = ydl.extract_info(
                     f"https://www.youtube.com/watch?v={track_id}",
                     download=False,
                 )
+                
+                # Try direct URL first
                 if info.get("url"):
                     return info["url"]
 
+                # Fallback to format selection
                 formats = info.get("formats", [])
                 audio_formats = [
-                    item for item in formats if item.get("acodec") != "none" and item.get("url")
+                    item for item in formats 
+                    if item.get("acodec") != "none" and item.get("url")
                 ]
+                
                 if audio_formats:
+                    # Prefer m4a/mp3, then sort by bitrate descending
                     preferred = sorted(
                         audio_formats,
                         key=lambda item: (

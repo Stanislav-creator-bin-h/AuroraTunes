@@ -1,9 +1,9 @@
 "use client"
 
-import { motion, AnimatePresence } from "framer-motion"
-import { SkipBack, Play, Pause, SkipForward, Repeat, Shuffle, Volume2, VolumeX, Heart } from "lucide-react"
+import { useState } from "react"
+import { Play, Pause, SkipBack, SkipForward, Shuffle, Repeat, Heart, Volume2, VolumeX, Volume1 } from "lucide-react"
+import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
-import { getSourceLabel } from "@/lib/source-label"
 import type { Track } from "@/lib/types"
 
 interface NowPlayingPanelProps {
@@ -15,6 +15,7 @@ interface NowPlayingPanelProps {
   isShuffle: boolean
   isRepeat: boolean
   thumbnailUrl: string
+  isLiked?: boolean
   onTogglePlay: () => void
   onPrev: () => void
   onNext: () => void
@@ -22,12 +23,20 @@ interface NowPlayingPanelProps {
   onVolumeChange: (volume: number) => void
   onToggleShuffle: () => void
   onToggleRepeat: () => void
-  isLiked?: boolean
   onToggleLike?: () => void
 }
 
-function formatTime(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
+function formatTime(seconds: number): string {
+  if (!seconds || isNaN(seconds)) return "0:00"
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, "0")}`
+}
+
+function VolumeIcon({ volume, muted }: { volume: number; muted: boolean }) {
+  if (muted || volume === 0) return <VolumeX className="size-5" />
+  if (volume < 0.5) return <Volume1 className="size-5" />
+  return <Volume2 className="size-5" />
 }
 
 export function NowPlayingPanel({
@@ -39,6 +48,7 @@ export function NowPlayingPanel({
   isShuffle,
   isRepeat,
   thumbnailUrl,
+  isLiked = false,
   onTogglePlay,
   onPrev,
   onNext,
@@ -46,128 +56,157 @@ export function NowPlayingPanel({
   onVolumeChange,
   onToggleShuffle,
   onToggleRepeat,
-  isLiked = false,
   onToggleLike,
 }: NowPlayingPanelProps) {
+  const [isMuted, setIsMuted] = useState(false)
+  const [prevVolume, setPrevVolume] = useState(volume)
+
+  const handleVolumeToggle = () => {
+    if (isMuted) {
+      onVolumeChange(prevVolume || 0.5)
+      setIsMuted(false)
+    } else {
+      setPrevVolume(volume)
+      onVolumeChange(0)
+      setIsMuted(true)
+    }
+  }
+
+  const handleVolumeSlider = (value: number[]) => {
+    const newVolume = value[0]
+    onVolumeChange(newVolume)
+    if (newVolume > 0) setIsMuted(false)
+  }
+
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+
   return (
-    <section className="hero-panel flex min-h-0 flex-col overflow-hidden rounded-[28px] xl:min-h-0 xl:flex-1">
-      <div className="min-h-0 flex-1 overscroll-contain px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
-        <div className="mx-auto flex w-full max-w-sm flex-col items-center pb-2">
-          <div className="mb-3 flex w-full items-center justify-between gap-2">
-          </div>
+    <div className="glass-panel player-glow flex h-full flex-col rounded-3xl p-6 lg:p-8">
+      {/* Album Art */}
+      <div className="relative mb-6 aspect-square w-full overflow-hidden rounded-2xl bg-secondary/50">
+        <img
+          src={thumbnailUrl}
+          alt={currentTrack?.title || "Album art"}
+          className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+          crossOrigin="anonymous"
+        />
+        {/* Reflection effect */}
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-white/5" />
+      </div>
 
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentTrack?.id || "empty"}
-              initial={{ opacity: 0, scale: 0.92 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3 }}
-              className="glass-tile relative aspect-square w-full max-w-[220px] shrink-0 overflow-hidden rounded-[28px] border-white/14 shadow-2xl sm:max-w-[260px] lg:max-w-[280px]"
-            >
-              {currentTrack ? (
-                <img
-                  src={thumbnailUrl}
-                  alt={currentTrack.title}
-                  className="h-full w-full object-cover"
-                  onError={(event) => {
-                    event.currentTarget.src = "https://via.placeholder.com/500x500/111827/e5e7eb?text=Music"
-                  }}
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center text-5xl opacity-30">♪</div>
-              )}
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,transparent,rgba(0,0,0,0.18)_65%,rgba(0,0,0,0.42)_100%)]" />
-              {currentTrack && onToggleLike && (
-                <button
-                  type="button"
-                  onClick={onToggleLike}
-                  className={cn(
-                    "absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/45 backdrop-blur-md transition-colors",
-                    isLiked ? "text-red-400" : "text-white/80 hover:text-red-300",
-                  )}
-                  title={isLiked ? "Прибрати з вподобаних" : "Додати до вподобаних"}
-                >
-                  <Heart className={cn("h-5 w-5", isLiked && "fill-current")} />
-                </button>
-              )}
-              {isPlaying && currentTrack && (
-                <motion.div
-                  className="absolute inset-0 bg-black/20"
-                  animate={{ opacity: [0.18, 0.34, 0.18] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                />
-              )}
-            </motion.div>
-          </AnimatePresence>
+      {/* Track Info */}
+      <div className="mb-6 min-h-[4rem] text-center">
+        <h2 className="mb-1 truncate text-xl font-bold text-foreground lg:text-2xl">
+          {currentTrack?.title || "Немає треку"}
+        </h2>
+        <p className="truncate text-sm text-muted-foreground lg:text-base">
+          {currentTrack?.channel || "Виберіть пісню"}
+        </p>
+      </div>
 
-          <div className="mt-4 w-full text-center">
-            <h2 className="line-clamp-2 text-xl font-bold tracking-tight text-white sm:text-2xl">
-              {currentTrack?.title || "Оберіть трек"}
-            </h2>
-            <p className="mt-1 truncate text-sm text-white/52">{currentTrack?.channel || "AuroraTunes"}</p>
-            {currentTrack && getSourceLabel(currentTrack.source) && (
-              <p className="mt-1 text-[10px] font-medium uppercase tracking-[0.18em] text-white/40">
-                Завантажено з {getSourceLabel(currentTrack.source)}
-              </p>
-            )}
-          </div>
-
-          <div className="mt-4 w-full rounded-[22px] border border-white/8 bg-black/24 p-3 sm:p-4">
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={Math.min(currentTime, duration || 0)}
-              onChange={(event) => onSeek(Number(event.target.value))}
-              disabled={!duration}
-              className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-white/[0.12] accent-white disabled:cursor-not-allowed disabled:opacity-40"
-            />
-            <div className="mt-2 flex justify-between text-xs text-white/40">
-              <span>{formatTime(currentTime)}</span>
-              <span>{formatTime(duration)}</span>
-            </div>
-          </div>
-
-          <div className="control-pill mt-4 flex w-full items-center justify-center gap-3 rounded-[24px] px-4 py-3 sm:gap-4 sm:px-5 sm:py-4">
-            <button type="button" onClick={onToggleShuffle} className={cn("player-btn p-2", isShuffle && "text-violet-400")}>
-              <Shuffle className="h-4 w-4" />
-            </button>
-            <button type="button" onClick={onPrev} className="player-btn p-2">
-              <SkipBack className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={onTogglePlay} className="player-btn-play shrink-0">
-              {isPlaying ? <Pause className="h-5 w-5 text-black" /> : <Play className="ml-0.5 h-5 w-5 text-black" />}
-            </button>
-            <button type="button" onClick={onNext} className="player-btn p-2">
-              <SkipForward className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={onToggleRepeat} className={cn("player-btn p-2", isRepeat && "text-violet-400")}>
-              <Repeat className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="control-pill mt-3 flex w-full items-center gap-3 rounded-[20px] px-4 py-3">
-            <button
-              type="button"
-              onClick={() => onVolumeChange(volume === 0 ? 0.7 : 0)}
-              className="player-btn shrink-0"
-            >
-              {volume === 0 ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-            </button>
-            <input
-              type="range"
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(event) => onVolumeChange(Number(event.target.value))}
-              className="flex-1 cursor-pointer"
-            />
-            <span className="text-xs font-medium text-white/45">{Math.round(volume * 100)}%</span>
-          </div>
+      {/* Progress Slider */}
+      <div className="mb-4 space-y-2">
+        <Slider
+          value={[currentTime]}
+          min={0}
+          max={duration || 100}
+          step={1}
+          onValueChange={(value) => onSeek(value[0])}
+          className="cursor-pointer"
+        />
+        <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <span className="tabular-nums">{formatTime(currentTime)}</span>
+          <span className="tabular-nums">-{formatTime(Math.max(0, duration - currentTime))}</span>
         </div>
       </div>
-    </section>
+
+      {/* Playback Controls */}
+      <div className="mb-6 flex items-center justify-center gap-3">
+        <button
+          onClick={onToggleShuffle}
+          className={cn(
+            "glass-button rounded-full p-2.5 transition-all",
+            isShuffle ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label="Shuffle"
+        >
+          <Shuffle className="size-4" />
+        </button>
+
+        <button
+          onClick={onPrev}
+          className="glass-button rounded-full p-3 text-foreground transition-all hover:scale-105"
+          aria-label="Previous track"
+        >
+          <SkipBack className="size-5" fill="currentColor" />
+        </button>
+
+        <button
+          onClick={onTogglePlay}
+          className="flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg shadow-primary/30 transition-all hover:scale-105 hover:shadow-xl hover:shadow-primary/40 active:scale-95 lg:size-16"
+          aria-label={isPlaying ? "Pause" : "Play"}
+        >
+          {isPlaying ? (
+            <Pause className="size-6 lg:size-7" fill="currentColor" />
+          ) : (
+            <Play className="size-6 translate-x-0.5 lg:size-7" fill="currentColor" />
+          )}
+        </button>
+
+        <button
+          onClick={onNext}
+          className="glass-button rounded-full p-3 text-foreground transition-all hover:scale-105"
+          aria-label="Next track"
+        >
+          <SkipForward className="size-5" fill="currentColor" />
+        </button>
+
+        <button
+          onClick={onToggleRepeat}
+          className={cn(
+            "glass-button rounded-full p-2.5 transition-all",
+            isRepeat ? "text-primary" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label="Repeat"
+        >
+          <Repeat className="size-4" />
+        </button>
+      </div>
+
+      {/* Volume & Like */}
+      <div className="mt-auto flex items-center gap-4">
+        <button
+          onClick={onToggleLike}
+          className={cn(
+            "rounded-full p-2 transition-all",
+            isLiked ? "text-red-500" : "text-muted-foreground hover:text-foreground"
+          )}
+          aria-label={isLiked ? "Unlike" : "Like"}
+        >
+          <Heart className={cn("size-5", isLiked && "fill-current")} />
+        </button>
+
+        <div className="flex flex-1 items-center gap-3">
+          <button
+            onClick={handleVolumeToggle}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+            aria-label={isMuted ? "Unmute" : "Mute"}
+          >
+            <VolumeIcon volume={volume} muted={isMuted} />
+          </button>
+          <Slider
+            value={[isMuted ? 0 : volume]}
+            min={0}
+            max={1}
+            step={0.01}
+            onValueChange={handleVolumeSlider}
+            className="flex-1 cursor-pointer"
+          />
+          <span className="w-8 text-right text-xs tabular-nums text-muted-foreground">
+            {Math.round((isMuted ? 0 : volume) * 100)}
+          </span>
+        </div>
+      </div>
+    </div>
   )
 }
