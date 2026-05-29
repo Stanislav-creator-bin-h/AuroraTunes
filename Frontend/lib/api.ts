@@ -399,3 +399,44 @@ export async function syncLikedTrack(
   if (!response.ok) throw await readError(response, "Failed to sync liked track")
   return response.json()
 }
+
+export interface GeneratedAiPlaylist {
+  name: string
+  description: string
+  tracks: (Track & { aiReason?: string })[]
+  warning?: string
+}
+
+export async function generateAiPlaylist(prompt: string, source: string = "all"): Promise<GeneratedAiPlaylist> {
+  const response = await apiFetch("/ai/generate-playlist", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ prompt, source }),
+  })
+
+  if (!response.ok) {
+    throw await readError(response, "Не вдалося згенерувати плейлист")
+  }
+
+  return response.json()
+}
+
+export async function createPlaylistWithTracks(name: string, tracks: Track[]): Promise<Playlist> {
+  const response = await apiFetch("/playlists/create-with-tracks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders(),
+    },
+    body: JSON.stringify({ name, tracks }),
+  })
+
+  if (!response.ok) {
+    throw await readError(response, "Не вдалося зберегти плейлист")
+  }
+
+  return response.json()
+}

@@ -3,7 +3,7 @@
  * Connected from the sidebar "AI" tab via AiPanel.
  */
 
-export const AI_ASSISTANT_ENABLED = false
+export const AI_ASSISTANT_ENABLED = true
 
 export type AiAssistantStatus = "idle" | "loading" | "ready" | "error"
 

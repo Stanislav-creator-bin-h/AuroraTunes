@@ -39,7 +39,6 @@ class SoundCloudProvider(BaseProvider):
     def is_enabled(self) -> bool:
         return bool(self.client_id)
 
-    # ---------------- SEARCH ----------------
     def search(self, query: str, limit: int = 8, cursor: str | None = None) -> tuple[list[dict], str | None]:
         logger.info("SoundCloud search: %s", query)
 
@@ -84,11 +83,9 @@ class SoundCloudProvider(BaseProvider):
             logger.exception("SoundCloud search error: %s", e)
             return [], None
 
-    # ---------------- STREAM ----------------
     def get_stream_url(self, track_id: str) -> str | None:
         logger.info("Getting stream for track_id=%s", track_id)
 
-        # ===== 1. OFFICIAL SOUND CLOUD API =====
         try:
             track = fetch_json(
                 f"https://api-v2.soundcloud.com/tracks/{track_id}",
@@ -125,12 +122,10 @@ class SoundCloudProvider(BaseProvider):
         except Exception as e:
             logger.exception("SoundCloud API error: %s", e)
 
-        # ===== 2. YT-DLP FALLBACK =====
         if YT_DLP_AVAILABLE and yt_dlp is not None:
             logger.info("Fallback to yt-dlp")
 
             try:
-                # IMPORTANT: api URL, not web URL without artist slug
                 track_url = f"https://api.soundcloud.com/tracks/{track_id}"
 
                 with yt_dlp.YoutubeDL({
@@ -148,7 +143,6 @@ class SoundCloudProvider(BaseProvider):
                     if not info:
                         return None
 
-                    # safest extraction
                     if info.get("url"):
                         return info["url"]
 

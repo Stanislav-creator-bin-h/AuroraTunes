@@ -13,13 +13,11 @@ function resolveFrontendUrl() {
 }
 
 function resolvePythonCommand() {
-  // Перевіряємо, чи є скомпільований exe (наш PyInstaller)
   const exePath = path.join(__dirname, "bin", "main.exe")
   if (fs.existsSync(exePath)) {
     return { command: exePath, args: [] }
   }
 
-  // Запасний варіант: використовуємо venv Python під час розробки
   const embeddedPython = path.join(__dirname, "..", "Backend", "venv", "Scripts", "python.exe")
   const scriptPath = path.join(__dirname, "..", "Backend", "main.py")
 
@@ -59,7 +57,7 @@ function startPythonBackend() {
   const backendDir = path.join(__dirname, "..", "Backend")
 
   pythonProcess = spawn(python.command, python.args, {
-    cwd: backendDir, // ЗАВЖДИ запускаємо з папки Backend, щоб python бачив файл Backend/.env
+    cwd: backendDir,
     env: process.env,
   })
 

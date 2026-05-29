@@ -781,6 +781,194 @@ def sync_liked_track():
     return jsonify(serialize_playlist(liked_pl))
 
 
+@app.route("/playlists/create-with-tracks", methods=["POST"])
+@require_auth
+def create_playlist_with_tracks():
+    user = g.current_user
+    session = g.db
+
+    payload = request.get_json(silent=True) or {}
+    name = (payload.get("name") or "").strip()
+    tracks_data = payload.get("tracks") or []
+
+    if not name:
+        return jsonify({"error": "Назва плейлиста обов'язкова"}), 400
+
+    try:
+        pl = Playlist(user_id=user.id, name=name, is_system=False)
+        session.add(pl)
+        session.flush()
+
+        for index, t in enumerate(tracks_data):
+            pt = PlaylistTrack(
+                playlist_id=pl.id,
+                track_id=str(t.get("id") or ""),
+                source=str(t.get("source") or "youtube"),
+                title=str(t.get("title") or "Unknown title"),
+                channel=t.get("channel"),
+                thumbnail=t.get("thumbnail"),
+                duration=t.get("duration"),
+                position=index,
+            )
+            session.add(pt)
+
+        session.commit()
+        session.refresh(pl)
+        return jsonify(serialize_playlist(pl)), 201
+    except Exception as e:
+        session.rollback()
+        app.logger.exception("Failed to create playlist with tracks: %s", e)
+        return jsonify({"error": "Помилка бази даних при збереженні плейлиста"}), 500
+
+
+@app.route("/ai/generate-playlist", methods=["POST"])
+@require_auth
+def generate_ai_playlist():
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key:
+        return jsonify({
+            "error": "GEMINI_API_KEY не налаштовано на сервері. Будь ласка, додайте GEMINI_API_KEY в файл .env у папці Backend."
+        }), 400
+
+    payload = request.get_json(silent=True) or {}
+    prompt = (payload.get("prompt") or "").strip()
+    source = (payload.get("source") or "all").strip().lower()
+
+    if not prompt:
+        return jsonify({"error": "Опис плейлиста обов'язковий"}), 400
+
+    # Define schema for Gemini JSON output
+    schema = {
+        "type": "OBJECT",
+        "properties": {
+            "playlistName": {"type": "STRING"},
+            "playlistDescription": {"type": "STRING"},
+            "recommendedTracks": {
+                "type": "ARRAY",
+                "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "query": {"type": "STRING"},
+                        "reason": {"type": "STRING"}
+                    },
+                    "required": ["query", "reason"]
+                }
+            }
+        },
+        "required": ["playlistName", "playlistDescription", "recommendedTracks"]
+    }
+
+    system_instruction = (
+        "You are an expert music curator. Based on the user's prompt (mood, activity, style, etc.), "
+        "generate a cohesive thematic playlist of 10 to 12 songs. "
+        "For each song, provide a search query in the format 'Artist - Title' that will return the exact song "
+        "when searched on YouTube or SoundCloud. Avoid obscure remixes unless requested. "
+        "Provide the playlistName, playlistDescription, and reasons why each song fits in Ukrainian."
+    )
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={gemini_key}"
+    req_payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"User prompt: {prompt}"
+            }]
+        }],
+        "systemInstruction": {
+            "parts": [{
+                "text": system_instruction
+            }]
+        },
+        "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": schema
+        }
+    }
+
+    try:
+        req_body = json.dumps(req_payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=req_body,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=30) as response:
+            resp_data = json.loads(response.read().decode("utf-8"))
+            text_response = resp_data["candidates"][0]["content"]["parts"][0]["text"]
+            ai_result = json.loads(text_response)
+    except urllib.error.HTTPError as e:
+        err_content = e.read().decode("utf-8")
+        app.logger.error("Gemini HTTP Error: %s - %s", e.code, err_content)
+        return jsonify({"error": f"Помилка Gemini API (HTTP {e.code}): {e.reason}"}), 502
+    except Exception as e:
+        app.logger.exception("Failed to query Gemini API: %s", e)
+        return jsonify({"error": "Не вдалося отримати відповідь від ШІ"}), 502
+
+    recommended_tracks = ai_result.get("recommendedTracks") or []
+    playlist_name = ai_result.get("playlistName") or "Згенерований плейлист"
+    playlist_desc = ai_result.get("playlistDescription") or ""
+
+    # Perform parallel search for queries
+    from concurrent.futures import ThreadPoolExecutor
+
+    def search_single_track(rec):
+        q = rec.get("query")
+        reason = rec.get("reason") or ""
+        if not q:
+            return None
+
+        providers_to_try = []
+        if source == "youtube":
+            if youtube_provider.is_enabled():
+                providers_to_try = [youtube_provider]
+        elif source == "soundcloud":
+            if soundcloud_provider.is_enabled():
+                providers_to_try = [soundcloud_provider]
+        else:  # "all" or "mixed"
+            if youtube_provider.is_enabled():
+                providers_to_try.append(youtube_provider)
+            if soundcloud_provider.is_enabled():
+                providers_to_try.append(soundcloud_provider)
+
+        tracks = []
+        for provider in providers_to_try:
+            try:
+                found_tracks, _ = provider.search(q, limit=1)
+                if found_tracks:
+                    tracks = found_tracks
+                    break
+            except Exception as search_err:
+                app.logger.error("Error searching %s for query '%s': %s", provider.source_name, q, search_err)
+
+        if tracks:
+            track = tracks[0]
+            track["aiReason"] = reason
+            return track
+        return None
+
+    matched_tracks = []
+    if recommended_tracks:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(search_single_track, recommended_tracks))
+        matched_tracks = [r for r in results if r is not None]
+
+    # If no providers are configured or nothing was found, but we got recommendations, return them
+    # as placeholder tracks or return a helpful notice
+    if not matched_tracks and not youtube_provider.is_enabled() and not soundcloud_provider.is_enabled():
+        return jsonify({
+            "name": playlist_name,
+            "description": playlist_desc,
+            "tracks": [],
+            "warning": "Жоден провайдер музики (YouTube/SoundCloud) не налаштований. Будь ласка, вкажіть YOUTUBE_API_KEY або SOUNDCLOUD_CLIENT_ID в .env."
+        })
+
+    return jsonify({
+        "name": playlist_name,
+        "description": playlist_desc,
+        "tracks": matched_tracks
+    })
+
+
 if __name__ == "__main__":
     print("AuroraTunes backend started", flush=True)
     app.run(debug=True, port=5000, host="0.0.0.0")
